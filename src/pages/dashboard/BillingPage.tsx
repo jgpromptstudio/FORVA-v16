@@ -74,11 +74,18 @@ export function BillingPage() {
   const activeSubscription = trackedPayPal && ['active', 'payment_failed', 'suspended'].includes(billingStatus);
   const pendingSubscription = trackedPayPal && billingStatus === 'approval_pending';
   const cancelledSubscription = trackedPayPal && billingStatus === 'cancelled';
+  const cycleEndTime = credit?.cycle_end ? new Date(credit.cycle_end).getTime() : null;
+  const cycleEnded = cycleEndTime !== null && Number.isFinite(cycleEndTime) && cycleEndTime <= Date.now();
+  const cancelledCycleEnded = cancelledSubscription && cycleEnded;
   const currentPlan = credit?.plan?.toLowerCase() || (trackedPayPal ? billing.plan?.toLowerCase() : undefined);
   const pendingPlan = trackedPayPal ? billing.pending_plan?.toLowerCase() : null;
   const planChangeApprovalState = trackedPayPal ? billing.plan_change_approval_state?.toLowerCase() ?? null : null;
   const approvedPlan = trackedPayPal ? billing.plan_change_approved_plan?.toLowerCase() ?? null : null;
   const untrackedLegacyCredit = Boolean(credit && !trackedPayPal);
+  const topupEnabled = trackedPayPal
+    && billingStatus === 'active'
+    && credit?.status === 'active'
+    && !cycleEnded;
 
   async function startSubscription(planName: string) {
     const plan = planName.trim().toLowerCase();
@@ -167,7 +174,7 @@ export function BillingPage() {
           ) : credit ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Current Plan</span>
+                <span className="text-sm text-muted-foreground">{cancelledCycleEnded ? 'Previous Plan' : 'Current Plan'}</span>
                 <Badge variant="secondary" className="capitalize">{credit.plan ?? 'Unknown'}</Badge>
               </div>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -190,7 +197,9 @@ export function BillingPage() {
               )}
               {cancelledSubscription && (
                 <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-muted-foreground">
-                  This PayPal subscription is cancelled and will not renew. Current paid credits remain usable until the cycle ends.
+                  {cancelledCycleEnded
+                    ? 'This PayPal subscription has ended. Monthly credits from the expired cycle are no longer usable. Choose a plan below to reactivate billing.'
+                    : 'This PayPal subscription is cancelled and will not renew. Current paid credits remain usable until the cycle ends.'}
                 </div>
               )}
             </div>
@@ -209,6 +218,7 @@ export function BillingPage() {
         {plansConfig.map((plan) => {
           const planKey = plan.name.toLowerCase();
           const isCurrentPlan = currentPlan === planKey;
+          const showCurrentPlan = isCurrentPlan && !cancelledCycleEnded;
           const isPendingPlan = pendingPlan === planKey;
           const isApprovedPendingPlan = isPendingPlan && planChangeApprovalState === 'approved' && approvedPlan === planKey;
           const isCheckingOut = checkoutPlan === planKey;
@@ -247,19 +257,24 @@ export function BillingPage() {
               disabled = true;
             }
           } else if (cancelledSubscription) {
-            buttonLabel = isCurrentPlan ? 'Cancelled - active until cycle end' : 'Available after cycle ends';
-            disabled = true;
+            if (cancelledCycleEnded) {
+              buttonLabel = isCurrentPlan ? `Restart ${plan.name}` : plan.cta;
+              onClick = () => startSubscription(plan.name);
+            } else {
+              buttonLabel = isCurrentPlan ? 'Cancelled - active until cycle end' : 'Available after cycle ends';
+              disabled = true;
+            }
           } else if (untrackedLegacyCredit) {
             buttonLabel = isCurrentPlan ? 'Current plan' : 'Billing reconciliation required';
             disabled = true;
           }
 
           return (
-            <Card key={plan.name} className={cn('relative flex flex-col', isCurrentPlan && 'border-primary/40 ring-1 ring-primary/20')}>
+            <Card key={plan.name} className={cn('relative flex flex-col', showCurrentPlan && 'border-primary/40 ring-1 ring-primary/20')}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>{plan.name}</CardTitle>
-                  {isCurrentPlan && <Badge variant="gold">Current plan</Badge>}
+                  {showCurrentPlan && <Badge variant="gold">Current plan</Badge>}
                   {isPendingPlan && !isCurrentPlan && <Badge variant="secondary">{isApprovedPendingPlan ? 'Scheduled' : 'Next cycle'}</Badge>}
                 </div>
                 <div className="mt-2"><span className="text-3xl font-bold text-white">{plan.price}</span><span className="text-sm text-muted-foreground">{plan.period}</span></div>
@@ -284,7 +299,7 @@ export function BillingPage() {
 
       <TopUpCredits
         workspaceId={workspaceId}
-        enabled={trackedPayPal && billingStatus === 'active'}
+        enabled={topupEnabled}
         topupRemaining={credit?.topup_remaining ?? 0}
         plan={currentPlan}
       />
