@@ -6,26 +6,34 @@ import { supabase } from '@/lib/supabase';
 import { Loader2, Plus } from 'lucide-react';
 
 const topupPackages = [
-  { credits: 500, price: '$22' },
-  { credits: 1000, price: '$44' },
-  { credits: 5000, price: '$220' },
-  { credits: 10000, price: '$440' },
+  { credits: 500, price: '$22', minPlan: 'starter' },
+  { credits: 1000, price: '$44', minPlan: 'starter' },
+  { credits: 5000, price: '$220', minPlan: 'growth' },
+  { credits: 10000, price: '$440', minPlan: 'pro' },
 ] as const;
+
+const planRank: Record<string, number> = {
+  starter: 1,
+  growth: 2,
+  pro: 3,
+};
 
 type Props = {
   workspaceId: string | null;
   enabled: boolean;
   topupRemaining: number;
+  plan?: string | null;
 };
 
-export function TopUpCredits({ workspaceId, enabled, topupRemaining }: Props) {
+export function TopUpCredits({ workspaceId, enabled, topupRemaining, plan }: Props) {
   const [busyCredits, setBusyCredits] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const handledReturn = useRef(false);
+  const currentRank = planRank[(plan ?? '').toLowerCase()] ?? 0;
 
-  async function buyTopup(credits: number) {
-    if (!enabled || !workspaceId) return;
+  async function buyTopup(credits: number, minPlan: string) {
+    if (!enabled || !workspaceId || currentRank < (planRank[minPlan] ?? 99)) return;
     setError(null);
     setMessage(null);
     setBusyCredits(credits);
@@ -119,28 +127,36 @@ export function TopUpCredits({ workspaceId, enabled, topupRemaining }: Props) {
           <Plus className="h-5 w-5 text-primary" />
           Buy Additional Credits
         </CardTitle>
-        <p className="text-sm text-muted-foreground">One-time PayPal top-ups for active paid plans.</p>
+        <p className="text-sm text-muted-foreground">One-time PayPal top-ups. Larger packages unlock on higher plans.</p>
       </CardHeader>
       <CardContent>
         {error && <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
         {message && <div className="mb-4 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">{message}</div>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {topupPackages.map((item) => (
-            <div key={item.credits} className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <Badge variant="secondary">{item.credits.toLocaleString()} credits</Badge>
-              <p className="mt-3 text-2xl font-bold text-foreground">{item.price}</p>
-              <p className="mt-1 text-xs text-muted-foreground">one-time</p>
-              <Button
-                className="mt-4 w-full"
-                variant="outline"
-                disabled={busyCredits !== null}
-                onClick={() => buyTopup(item.credits)}
-              >
-                {busyCredits === item.credits && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {busyCredits === item.credits ? 'Opening PayPal' : 'Buy with PayPal'}
-              </Button>
-            </div>
-          ))}
+          {topupPackages.map((item) => {
+            const available = currentRank >= (planRank[item.minPlan] ?? 99);
+            const requiredLabel = item.minPlan === 'growth' ? 'Growth plan required' : item.minPlan === 'pro' ? 'Pro plan required' : 'Buy with PayPal';
+
+            return (
+              <div key={item.credits} className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="secondary">{item.credits.toLocaleString()} credits</Badge>
+                  {!available && <Badge variant="outline" className="capitalize">{item.minPlan}+</Badge>}
+                </div>
+                <p className="mt-3 text-2xl font-bold text-foreground">{item.price}</p>
+                <p className="mt-1 text-xs text-muted-foreground">one-time</p>
+                <Button
+                  className="mt-4 w-full"
+                  variant="outline"
+                  disabled={busyCredits !== null || !available}
+                  onClick={() => buyTopup(item.credits, item.minPlan)}
+                >
+                  {busyCredits === item.credits && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {busyCredits === item.credits ? 'Opening PayPal' : available ? 'Buy with PayPal' : requiredLabel}
+                </Button>
+              </div>
+            );
+          })}
         </div>
         {busyCredits === -1 && (
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
