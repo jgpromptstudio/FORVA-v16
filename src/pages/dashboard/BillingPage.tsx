@@ -133,7 +133,7 @@ export function BillingPage() {
           const isCurrentPlan = credit?.plan?.toLowerCase() === planKey;
           const isCheckingOut = checkoutPlan === planKey;
           const checkoutBusy = checkoutPlan !== null;
-          const disableForExistingSubscription = hasActivePlan && !isCurrentPlan;
+          const disablePlanChange = hasActivePlan && !isCurrentPlan;
 
           return (
             <Card key={plan.name} className={cn('relative flex flex-col', isCurrentPlan && 'border-primary/40 ring-1 ring-primary/20')}>
@@ -163,7 +163,7 @@ export function BillingPage() {
                   <Button
                     className="w-full"
                     variant={plan.highlighted ? 'default' : 'outline'}
-                    disabled={isCurrentPlan || disableForExistingSubscription || checkoutBusy || creditLoading}
+                    disabled={disablePlanChange || checkoutBusy || creditLoading}
                     onClick={() => startSubscription(plan.name)}
                   >
                     {isCheckingOut ? (
@@ -172,8 +172,8 @@ export function BillingPage() {
                         Opening PayPal
                       </>
                     ) : isCurrentPlan ? (
-                      'Current plan'
-                    ) : disableForExistingSubscription ? (
+                      'Subscribe with PayPal'
+                    ) : disablePlanChange ? (
                       'Plan change unavailable'
                     ) : (
                       plan.cta
