@@ -20,7 +20,7 @@ export const faqsConfig: FaqItem[] = [
       'No. Every plan includes a defined monthly allowance so FORVA can remain reliable and sustainable. You can upgrade, add approved capacity, or connect supported provider accounts.',
   },
   {
-    question: 'Can I connect my Apollo or Hunter account?',
+    question: 'Can I connect my Apollo.io or Hunter.io account?',
     answer:
       'Yes. Supported personal API connections can expand your capacity. Provider charges remain between you and that provider.',
   },
@@ -32,7 +32,7 @@ export const faqsConfig: FaqItem[] = [
   {
     question: 'Can I cancel or change plans?',
     answer:
-      'Yes. Subscription-management options will be available through the account billing settings once production payments are connected.',
+      'Yes. Subscription management is available through your account billing settings for supported payment methods. Plan changes, cancellations, and credit activation follow verified provider billing events.',
   },
   {
     question: 'What happens when I reach my usage limit?',
