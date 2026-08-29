@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useWorkspace, useCreditAccount } from '@/lib/dashboard/useWorkspace';
 import { plansConfig } from '@/config/planConfig';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Check, Gauge, Loader2, Calendar } from 'lucide-react';
 
@@ -14,10 +17,46 @@ function formatDate(dateStr: string | null): string {
 export function BillingPage() {
   const { workspaceId, loading: wsLoading, error: wsError } = useWorkspace();
   const { data: credit, loading: creditLoading, error: creditError, reason } = useCreditAccount(workspaceId);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const totalAvailable = credit
     ? (credit.monthly_remaining ?? 0) + (credit.topup_remaining ?? 0)
     : null;
+
+  const hasActivePlan = Boolean(credit?.plan);
+
+  async function startSubscription(planName: string) {
+    const plan = planName.trim().toLowerCase();
+
+    if (!['starter', 'growth', 'pro'].includes(plan)) {
+      setCheckoutError('This plan is not available for checkout.');
+      return;
+    }
+
+    setCheckoutError(null);
+    setCheckoutPlan(plan);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('paypal-create-subscription', {
+        body: { plan },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.ok || typeof data?.approval_url !== 'string' || !data.approval_url) {
+        throw new Error(data?.error || 'PayPal approval URL was not returned.');
+      }
+
+      window.location.assign(data.approval_url);
+    } catch (error) {
+      console.error('PayPal subscription checkout failed', error);
+      setCheckoutError('Unable to start PayPal checkout. Please try again.');
+      setCheckoutPlan(null);
+    }
+  }
 
   return (
     <WorkspaceGuard
@@ -82,9 +121,20 @@ export function BillingPage() {
         </CardContent>
       </Card>
 
+      {checkoutError && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {checkoutError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {plansConfig.map((plan) => {
-          const isCurrentPlan = credit?.plan?.toLowerCase() === plan.name.toLowerCase();
+          const planKey = plan.name.toLowerCase();
+          const isCurrentPlan = credit?.plan?.toLowerCase() === planKey;
+          const isCheckingOut = checkoutPlan === planKey;
+          const checkoutBusy = checkoutPlan !== null;
+          const disableForExistingSubscription = hasActivePlan && !isCurrentPlan;
+
           return (
             <Card key={plan.name} className={cn('relative flex flex-col', isCurrentPlan && 'border-primary/40 ring-1 ring-primary/20')}>
               <CardHeader>
@@ -108,6 +158,28 @@ export function BillingPage() {
                     </div>
                   ))}
                 </div>
+
+                <div className="mt-6 pt-2">
+                  <Button
+                    className="w-full"
+                    variant={plan.highlighted ? 'default' : 'outline'}
+                    disabled={isCurrentPlan || disableForExistingSubscription || checkoutBusy || creditLoading}
+                    onClick={() => startSubscription(plan.name)}
+                  >
+                    {isCheckingOut ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Opening PayPal
+                      </>
+                    ) : isCurrentPlan ? (
+                      'Current plan'
+                    ) : disableForExistingSubscription ? (
+                      'Plan change unavailable'
+                    ) : (
+                      plan.cta
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           );
@@ -115,7 +187,7 @@ export function BillingPage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-muted-foreground/60">
-        Plan checkout and switching are intentionally not shown until the real payment integration is connected.
+        PayPal checkout creates the subscription approval flow only. Credits activate only after verified payment processing.
       </p>
     </WorkspaceGuard>
   );
