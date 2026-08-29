@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
+import { TopUpCredits } from '@/components/dashboard/TopUpCredits';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -280,6 +281,12 @@ export function BillingPage() {
           );
         })}
       </div>
+
+      <TopUpCredits
+        workspaceId={workspaceId}
+        enabled={trackedPayPal && billingStatus === 'active'}
+        topupRemaining={credit?.topup_remaining ?? 0}
+      />
 
       {activeSubscription && (
         <div className="mt-6 flex justify-center">
