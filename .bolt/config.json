@@ -1,3 +1,7 @@
 {
-  "template": "bolt-vite-react-ts"
+  "template": "bolt-vite-react-ts",
+  "env": {
+    "VITE_SUPABASE_URL": "https://bvfkgxkubflgejuzorie.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2ZmtneGt1YmZsZ2VqdXpvcmllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzY3NzgsImV4cCI6MjEwMzM1Mjc3OH0.tIWS7VeE7lr7pwAKTj22h3HJdAVc-WVttybYSgO5les"
+  }
 }
