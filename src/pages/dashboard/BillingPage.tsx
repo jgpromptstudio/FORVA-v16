@@ -286,6 +286,7 @@ export function BillingPage() {
         workspaceId={workspaceId}
         enabled={trackedPayPal && billingStatus === 'active'}
         topupRemaining={credit?.topup_remaining ?? 0}
+        plan={currentPlan}
       />
 
       {activeSubscription && (
