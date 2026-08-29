@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth';
 import { useWorkspace } from '@/lib/dashboard/useWorkspace';
 import { supabase } from '@/lib/supabase';
-import { AlertCircle, CheckCircle2, Loader2, Save, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, LogOut, Save, ShieldCheck } from 'lucide-react';
 
 interface SenderIdentityForm {
   from_name: string;
@@ -19,7 +21,9 @@ const emptyForm: SenderIdentityForm = {
 };
 
 export function SettingsPage() {
+  const { user, signOut } = useAuth();
   const { workspaceId, loading: wsLoading, error: wsError } = useWorkspace();
+  const navigate = useNavigate();
   const [form, setForm] = useState<SenderIdentityForm>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,6 +64,11 @@ export function SettingsPage() {
 
     loadSenderIdentity();
   }, [workspaceId]);
+
+  async function handleSignOut() {
+    await signOut();
+    navigate('/login');
+  }
 
   async function saveSenderIdentity() {
     if (!workspaceId) return;
@@ -124,7 +133,34 @@ export function SettingsPage() {
       workspaceError={wsError}
       workspaceId={workspaceId}
     >
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Authenticated email</label>
+                <p className="mt-1 text-sm text-foreground">{user?.email ?? 'Not available'}</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Session status</label>
+                <div className="mt-1 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  <span className="text-sm text-foreground">Authenticated</span>
+                </div>
+              </div>
+              <div className="pt-2">
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
