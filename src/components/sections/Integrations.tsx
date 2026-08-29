@@ -9,17 +9,12 @@ export function Integrations() {
         {/* Header */}
         <div className="mx-auto mb-16 max-w-3xl text-center">
           <Reveal>
-            <span className="eyebrow">Production Infrastructure</span>
+            <span className="eyebrow">Infrastructure</span>
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-4 text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-              The stack behind FORVA, built to scale without the technical mess.
+              The tools behind the work, without the technical mess.
             </h2>
-          </Reveal>
-          <Reveal delay={180}>
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              FORVA combines application, automation, data, AI, delivery, payment, edge, and monitoring services. Scale components are activated as usage grows so the platform can expand without changing how customers use it.
-            </p>
           </Reveal>
         </div>
 
