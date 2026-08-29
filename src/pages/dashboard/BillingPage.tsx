@@ -19,6 +19,9 @@ type BillingSubscription = {
   environment?: string;
   last_payment_at?: string | null;
   cancel_requested_at?: string | null;
+  plan_change_approval_state?: string | null;
+  plan_change_requested_plan?: string | null;
+  plan_change_approved_plan?: string | null;
 };
 
 function formatDate(dateStr: string | null): string {
@@ -72,6 +75,8 @@ export function BillingPage() {
   const cancelledSubscription = trackedPayPal && billingStatus === 'cancelled';
   const currentPlan = credit?.plan?.toLowerCase() || (trackedPayPal ? billing.plan?.toLowerCase() : undefined);
   const pendingPlan = trackedPayPal ? billing.pending_plan?.toLowerCase() : null;
+  const planChangeApprovalState = trackedPayPal ? billing.plan_change_approval_state?.toLowerCase() ?? null : null;
+  const approvedPlan = trackedPayPal ? billing.plan_change_approved_plan?.toLowerCase() ?? null : null;
   const untrackedLegacyCredit = Boolean(credit && !trackedPayPal);
 
   async function startSubscription(planName: string) {
@@ -175,7 +180,11 @@ export function BillingPage() {
               )}
               {pendingPlan && (
                 <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
-                  Plan change requested: <span className="capitalize font-medium">{pendingPlan}</span>. PayPal applies the new price and FORVA credits on the next verified billing payment.
+                  {planChangeApprovalState === 'approved' && approvedPlan === pendingPlan ? (
+                    <>Plan change approved: <span className="capitalize font-medium">{pendingPlan}</span>. The new PayPal price and FORVA credits will apply on the next verified billing payment.</>
+                  ) : (
+                    <>Plan change requested: <span className="capitalize font-medium">{pendingPlan}</span>. Complete PayPal approval to schedule the new price and FORVA credits for the next billing payment.</>
+                  )}
                 </div>
               )}
               {cancelledSubscription && (
@@ -200,6 +209,7 @@ export function BillingPage() {
           const planKey = plan.name.toLowerCase();
           const isCurrentPlan = currentPlan === planKey;
           const isPendingPlan = pendingPlan === planKey;
+          const isApprovedPendingPlan = isPendingPlan && planChangeApprovalState === 'approved' && approvedPlan === planKey;
           const isCheckingOut = checkoutPlan === planKey;
           const isChanging = actionBusy === `revise:${planKey}`;
           const busy = checkoutPlan !== null || actionBusy !== null || creditLoading || billingLoading;
@@ -221,8 +231,13 @@ export function BillingPage() {
               buttonLabel = 'Current plan';
               disabled = true;
             } else if (isPendingPlan) {
-              buttonLabel = `Continue change to ${plan.name}`;
-              onClick = () => changePlan(plan.name);
+              if (isApprovedPendingPlan) {
+                buttonLabel = `${plan.name} scheduled for next cycle`;
+                disabled = true;
+              } else {
+                buttonLabel = `Continue change to ${plan.name}`;
+                onClick = () => changePlan(plan.name);
+              }
             } else if (billingStatus === 'active') {
               buttonLabel = `Change to ${plan.name}`;
               onClick = () => changePlan(plan.name);
@@ -244,7 +259,7 @@ export function BillingPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle>{plan.name}</CardTitle>
                   {isCurrentPlan && <Badge variant="gold">Current plan</Badge>}
-                  {isPendingPlan && !isCurrentPlan && <Badge variant="secondary">Next cycle</Badge>}
+                  {isPendingPlan && !isCurrentPlan && <Badge variant="secondary">{isApprovedPendingPlan ? 'Scheduled' : 'Next cycle'}</Badge>}
                 </div>
                 <div className="mt-2"><span className="text-3xl font-bold text-white">{plan.price}</span><span className="text-sm text-muted-foreground">{plan.period}</span></div>
               </CardHeader>
