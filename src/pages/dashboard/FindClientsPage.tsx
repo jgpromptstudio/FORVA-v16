@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
 import { ErrorBanner, EmptyState } from '@/components/dashboard/States';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,14 @@ import { useAcquisitionRuns } from '@/lib/dashboard/useAcquisitionRuns';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo, formatAcquisitionError } from '@/lib/dashboard/workspace';
+import {
+  loadCountries,
+  loadStates,
+  loadCities,
+  type CountryOption,
+  type StateOption,
+  type CityOption,
+} from '@/lib/locationData';
 import { Target, Loader2, AlertCircle, CheckCircle2, Rocket } from 'lucide-react';
 
 const runStatusColors: Record<string, string> = {
@@ -25,6 +33,7 @@ function capitalize(str: string | null): string {
 
 interface FormState {
   country: string;
+  stateCode: string;
   city: string;
   niche: string;
   serviceOffer: string;
@@ -35,6 +44,7 @@ interface FormState {
 
 const defaultForm: FormState = {
   country: '',
+  stateCode: '',
   city: '',
   niche: '',
   serviceOffer: '',
@@ -53,6 +63,97 @@ export function FindClientsPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
+  const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [states, setStates] = useState<StateOption[]>([]);
+  const [cities, setCities] = useState<CityOption[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initCountries() {
+      setCountriesLoading(true);
+      setLocationError(null);
+      try {
+        const data = await loadCountries();
+        if (!cancelled) setCountries(data);
+      } catch {
+        if (!cancelled) setLocationError('Location choices could not be loaded. Please refresh and try again.');
+      } finally {
+        if (!cancelled) setCountriesLoading(false);
+      }
+    }
+
+    initCountries();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshStates() {
+      setStates([]);
+      setCities([]);
+      if (!form.country) return;
+
+      setStatesLoading(true);
+      setLocationError(null);
+      try {
+        const data = await loadStates(form.country);
+        if (!cancelled) {
+          setStates(data);
+          if (data.length === 0) {
+            setLocationError('No state or region data is available for this country yet.');
+          }
+        }
+      } catch {
+        if (!cancelled) setLocationError('States or regions could not be loaded. Please try again.');
+      } finally {
+        if (!cancelled) setStatesLoading(false);
+      }
+    }
+
+    refreshStates();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.country]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshCities() {
+      setCities([]);
+      if (!form.country || !form.stateCode) return;
+
+      setCitiesLoading(true);
+      setLocationError(null);
+      try {
+        const data = await loadCities(form.country, form.stateCode);
+        if (!cancelled) {
+          setCities(data);
+          if (data.length === 0) {
+            setLocationError('No city data is available for this state or region yet.');
+          }
+        }
+      } catch {
+        if (!cancelled) setLocationError('Cities could not be loaded. Please try again.');
+      } finally {
+        if (!cancelled) setCitiesLoading(false);
+      }
+    }
+
+    refreshCities();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.country, form.stateCode]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!workspaceId) return;
@@ -63,13 +164,16 @@ export function FindClientsPage() {
     setFieldErrors({});
 
     const country = form.country.trim();
+    const stateCode = form.stateCode.trim();
     const city = form.city.trim();
     const niche = form.niche.trim();
     const serviceOffer = form.serviceOffer.trim();
+    const selectedState = states.find((state) => state.iso2 === stateCode);
 
     const errors: Record<string, string> = {};
-    if (!country) errors.country = 'Country is required';
-    if (!city) errors.city = 'City is required';
+    if (!country || !countries.some((item) => item.iso2 === country)) errors.country = 'Select a country';
+    if (!stateCode || !selectedState) errors.stateCode = 'Select a state or region';
+    if (!city || !cities.some((item) => item.name === city)) errors.city = 'Select a city';
     if (!niche) errors.niche = 'Industry / Niche is required';
     if (!serviceOffer) errors.serviceOffer = 'Service Offer is required';
 
@@ -90,13 +194,15 @@ export function FindClientsPage() {
       return;
     }
 
+    const cityForBackend = selectedState ? `${city}, ${selectedState.name}` : city;
+
     try {
       const { data: savedProfile, error: saveError } = await supabase.rpc('save_forva_target_profile', {
         p_workspace_id: workspaceId,
         p_profile_id: null,
         p_name: null,
         p_country: country,
-        p_city: city,
+        p_city: cityForBackend,
         p_niche: niche,
         p_service_offer: serviceOffer,
         p_desired_prospect_count: Number.isNaN(desiredCount) ? 50 : desiredCount,
@@ -148,12 +254,20 @@ export function FindClientsPage() {
   }
 
   function updateField<K extends keyof FormState>(key: K, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((current) => {
+      if (key === 'country') {
+        return { ...current, country: value, stateCode: '', city: '' };
+      }
+      if (key === 'stateCode') {
+        return { ...current, stateCode: value, city: '' };
+      }
+      return { ...current, [key]: value };
+    });
     setFieldErrors((prev) => ({ ...prev, [key]: '' }));
   }
 
-  const inputClass = 'w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none';
-  const errorInputClass = 'w-full rounded-lg border border-red-500/40 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500/50 focus:outline-none';
+  const inputClass = 'w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50';
+  const errorInputClass = 'w-full rounded-lg border border-red-500/40 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
   return (
     <WorkspaceGuard
@@ -162,7 +276,6 @@ export function FindClientsPage() {
       workspaceId={workspaceId}
     >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Form */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -175,30 +288,72 @@ export function FindClientsPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Country <span className="text-red-400">*</span></label>
-                  <input
-                    type="text"
+                  <select
                     value={form.country}
                     onChange={(e) => updateField('country', e.target.value)}
-                    placeholder="e.g. United States"
+                    disabled={countriesLoading}
                     className={cn('mt-1', fieldErrors.country ? errorInputClass : inputClass)}
-                  />
+                  >
+                    <option value="">{countriesLoading ? 'Loading countries...' : 'Select country'}</option>
+                    {countries.map((country) => (
+                      <option key={country.iso2} value={country.iso2}>
+                        {country.emoji ? `${country.emoji} ` : ''}{country.name}
+                      </option>
+                    ))}
+                  </select>
                   {fieldErrors.country && <p className="mt-1 text-xs text-red-400">{fieldErrors.country}</p>}
                 </div>
+
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">State / Region <span className="text-red-400">*</span></label>
+                  <select
+                    value={form.stateCode}
+                    onChange={(e) => updateField('stateCode', e.target.value)}
+                    disabled={!form.country || statesLoading}
+                    className={cn('mt-1', fieldErrors.stateCode ? errorInputClass : inputClass)}
+                  >
+                    <option value="">
+                      {statesLoading ? 'Loading regions...' : form.country ? 'Select state / region' : 'Select country first'}
+                    </option>
+                    {states.map((state) => (
+                      <option key={`${state.iso2}-${state.id}`} value={state.iso2}>{state.name}</option>
+                    ))}
+                  </select>
+                  {fieldErrors.stateCode && <p className="mt-1 text-xs text-red-400">{fieldErrors.stateCode}</p>}
+                </div>
+
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">City <span className="text-red-400">*</span></label>
-                  <input
-                    type="text"
+                  <select
                     value={form.city}
                     onChange={(e) => updateField('city', e.target.value)}
-                    placeholder="e.g. New York"
+                    disabled={!form.stateCode || citiesLoading}
                     className={cn('mt-1', fieldErrors.city ? errorInputClass : inputClass)}
-                  />
+                  >
+                    <option value="">
+                      {citiesLoading ? 'Loading cities...' : form.stateCode ? 'Select city' : 'Select state / region first'}
+                    </option>
+                    {cities.map((city) => (
+                      <option key={`${city.id}-${city.name}`} value={city.name}>{city.name}</option>
+                    ))}
+                  </select>
                   {fieldErrors.city && <p className="mt-1 text-xs text-red-400">{fieldErrors.city}</p>}
                 </div>
               </div>
+
+              {locationError && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <p className="text-xs text-amber-300">{locationError}</p>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground/60">
+                Country, state and city choices use structured ISO location data from the Countries States Cities Database.
+              </p>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Industry / Niche <span className="text-red-400">*</span></label>
@@ -280,7 +435,7 @@ export function FindClientsPage() {
                 </div>
               )}
 
-              <Button type="submit" disabled={submitting || !workspaceId} className="w-full">
+              <Button type="submit" disabled={submitting || !workspaceId || countriesLoading || statesLoading || citiesLoading} className="w-full">
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -297,7 +452,6 @@ export function FindClientsPage() {
           </CardContent>
         </Card>
 
-        {/* Run history */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
