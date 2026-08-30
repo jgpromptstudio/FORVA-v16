@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
+import { GuidanceCard } from '@/components/dashboard/GuidanceCard';
 import { ErrorBanner, LoadingState, EmptyState } from '@/components/dashboard/States';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useFollowups } from '@/lib/dashboard/useFollowups';
 import { useWorkspace } from '@/lib/dashboard/useWorkspace';
 import { cn } from '@/lib/utils';
 import { formatStopReason } from '@/lib/dashboard/workspace';
+import { ClipboardCheck } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   scheduled: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -41,6 +45,19 @@ export function FollowupsPage() {
       onRefresh={refresh}
       refreshing={loading}
     >
+      <div className="mb-5">
+        <GuidanceCard title="How follow-ups work">
+          <div className="space-y-2">
+            <p>FORVA schedules a follow-up when outreach was sent and no reply has stopped the sequence.</p>
+            <p><span className="font-medium text-foreground">Manual mode:</span> a follow-up draft waits in Review Queue for you. <span className="font-medium text-foreground">Auto-Pilot:</span> it can send automatically only when you enabled follow-up auto-send in Settings and all safety checks pass.</p>
+            <p>When a prospect replies, unsubscribes or becomes ineligible, FORVA stops unnecessary follow-ups.</p>
+            <Button variant="outline" size="sm" asChild className="mt-1">
+              <Link to="/dashboard/reviews"><ClipboardCheck className="h-4 w-4" />Open Review Queue</Link>
+            </Button>
+          </div>
+        </GuidanceCard>
+      </div>
+
       {error && <ErrorBanner error={error} />}
 
       <div className="mb-4">
@@ -62,16 +79,10 @@ export function FollowupsPage() {
       {loading ? (
         <LoadingState />
       ) : data.length === 0 ? (
-        <Card>
-          <CardContent>
-            <EmptyState message="No follow-ups found." />
-          </CardContent>
-        </Card>
+        <Card><CardContent><EmptyState message="No follow-ups found." /></CardContent></Card>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>Follow-ups</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Follow-ups</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -89,10 +100,7 @@ export function FollowupsPage() {
                       <td className="py-3 pr-4 font-medium text-foreground">{f.business_name}</td>
                       <td className="py-3 pr-4 text-xs text-muted-foreground">{formatDateTime(f.scheduled_for)}</td>
                       <td className="py-3 pr-4">
-                        <span className={cn(
-                          'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
-                          statusColors[f.status ?? ''] ?? 'bg-white/10 text-muted-foreground border-white/20'
-                        )}>
+                        <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', statusColors[f.status ?? ''] ?? 'bg-white/10 text-muted-foreground border-white/20')}>
                           {capitalize(f.status)}
                         </span>
                       </td>
