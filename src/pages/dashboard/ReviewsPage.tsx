@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
+import { GuidanceCard } from '@/components/dashboard/GuidanceCard';
 import { ErrorBanner, LoadingState, EmptyState } from '@/components/dashboard/States';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +11,7 @@ import { useWorkspace } from '@/lib/dashboard/useWorkspace';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo, type ReviewRow } from '@/lib/dashboard/workspace';
-import { CheckCircle2, Eye, Loader2, Pencil, Save, Send, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, Loader2, MessageSquare, Pencil, Save, Send, XCircle } from 'lucide-react';
 
 const priorityColors: Record<string, string> = {
   High: 'bg-gold/20 text-gold border border-gold/30',
@@ -28,6 +30,17 @@ function previewBody(body: string | null): string {
   if (!body) return '';
   const normalized = body.replace(/\s+/g, ' ').trim();
   return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized;
+}
+
+function sendLabel(item: ReviewRow): string {
+  if (item.kind === 'reply') return 'Send Reply';
+  if (item.kind === 'human_handoff') return 'Review & Send';
+  if (item.kind === 'followup') return 'Send Follow-up';
+  return 'Approve & Send';
+}
+
+function rejectLabel(item: ReviewRow): string {
+  return item.kind === 'first_outreach' ? 'Reject' : 'Skip';
 }
 
 export function ReviewsPage() {
@@ -61,11 +74,11 @@ export function ReviewsPage() {
     action: ReviewAction,
     extra?: { subject?: string; body?: string },
   ) {
-    if (item.source !== 'manual_outreach') return;
-
     if (action === 'reject') {
-      const confirmed = window.confirm('Reject this outreach draft? It will be cancelled and will not be sent.');
-      if (!confirmed) return;
+      const prompt = item.kind === 'first_outreach'
+        ? 'Reject this first email? It will be cancelled and will not be sent.'
+        : 'Skip this message? It will be cancelled and will not be sent.';
+      if (!window.confirm(prompt)) return;
     }
 
     if (action === 'edit' && !editBody.trim()) {
@@ -79,7 +92,11 @@ export function ReviewsPage() {
     setActionNotice(null);
 
     try {
-      const { data: result, error: invokeError } = await supabase.functions.invoke('forva-review-outreach', {
+      const functionName = item.source === 'conversation_draft'
+        ? 'forva-conversation-reply'
+        : 'forva-review-outreach';
+
+      const { data: result, error: invokeError } = await supabase.functions.invoke(functionName, {
         body: {
           message_id: item.id,
           action,
@@ -91,15 +108,15 @@ export function ReviewsPage() {
       if (!result?.ok) throw new Error(result?.error || 'Review action failed.');
 
       if (action === 'edit') {
-        setActionNotice('Draft updated successfully.');
+        setActionNotice('Draft updated. The saved version is the one FORVA will use when you send it.');
         cancelEdit();
       } else if (action === 'reject') {
-        setActionNotice('Outreach rejected and cancelled.');
+        setActionNotice(item.kind === 'first_outreach' ? 'Email rejected and cancelled.' : 'Message skipped and cancelled.');
         setExpandedId(null);
       } else if (action === 'retry') {
-        setActionNotice('Outreach queued for another send attempt.');
+        setActionNotice('Message queued for another send attempt.');
       } else {
-        setActionNotice('Outreach approved and queued for sending.');
+        setActionNotice(`${sendLabel(item)} queued successfully.`);
         setExpandedId(null);
       }
 
@@ -119,6 +136,24 @@ export function ReviewsPage() {
       onRefresh={refresh}
       refreshing={loading}
     >
+      <div className="mb-5">
+        <GuidanceCard title="How the Review Queue works">
+          <div className="space-y-2">
+            <p>
+              First emails, replies, follow-ups and safety handoffs appear here whenever FORVA needs your decision.
+              Open the draft, edit it if needed, then send or skip it.
+            </p>
+            <p>
+              <span className="font-medium text-foreground">Manual mode:</span> messages wait for your approval.
+              {' '}<span className="font-medium text-foreground">Auto-Pilot:</span> eligible messages can continue automatically, while pricing, meeting requests and anything outside your rules stays here for review.
+            </p>
+            <p>
+              The saved draft is the message FORVA sends. New AI drafts use your writing style and are instructed to sound natural and avoid em dashes.
+            </p>
+          </div>
+        </GuidanceCard>
+      </div>
+
       {error && <ErrorBanner error={error} />}
       {actionError && <ErrorBanner error={actionError} />}
       {actionNotice && (
@@ -133,7 +168,7 @@ export function ReviewsPage() {
       ) : data.length === 0 ? (
         <Card>
           <CardContent>
-            <EmptyState message="No items require review. Review outreach that needs your approval or manual action before it can continue." />
+            <EmptyState message="Nothing needs your review right now. FORVA will place first emails, replies, follow-ups or safety handoffs here when your decision is needed." />
           </CardContent>
         </Card>
       ) : (
@@ -141,7 +176,6 @@ export function ReviewsPage() {
           {data.map((item) => {
             const expanded = expandedId === item.id;
             const editing = editingId === item.id;
-            const isManualOutreach = item.source === 'manual_outreach';
             const isBusy = busyKey?.startsWith(`${item.id}:`) ?? false;
 
             return (
@@ -161,7 +195,7 @@ export function ReviewsPage() {
                           <p className="mt-1 text-xs text-muted-foreground">{formatTimeAgo(item.occurred_at)}</p>
                         )}
                       </div>
-                      <Badge className={cn('w-fit', priorityColors[item.priority] ?? priorityColors['Medium'])}>
+                      <Badge className={cn('w-fit', priorityColors[item.priority] ?? priorityColors.Medium)}>
                         {item.priority}
                       </Badge>
                     </div>
@@ -170,15 +204,18 @@ export function ReviewsPage() {
                       <div className="rounded-lg bg-white/5 p-3">
                         {item.subject && <p className="mb-2 text-sm font-medium text-foreground">{item.subject}</p>}
                         {item.body && (
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                             {expanded ? item.body : previewBody(item.body)}
                           </p>
                         )}
                       </div>
                     )}
 
-                    {editing && isManualOutreach && (
+                    {editing && (
                       <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Edit this freely. Once saved, this becomes the exact draft FORVA will use for this message.
+                        </p>
                         <div>
                           <label className="text-xs font-medium text-muted-foreground">Subject</label>
                           <input
@@ -213,7 +250,7 @@ export function ReviewsPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -224,35 +261,38 @@ export function ReviewsPage() {
                         {expanded ? 'Hide' : 'View'}
                       </Button>
 
-                      {isManualOutreach ? (
-                        <>
-                          <Button variant="outline" size="sm" disabled={isBusy || editing} onClick={() => beginEdit(item)}>
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            disabled={isBusy || editing}
-                            onClick={() => invokeReviewAction(item, 'approve')}
-                          >
-                            {busyKey === `${item.id}:approve` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            Approve & Send
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isBusy || editing}
-                            onClick={() => invokeReviewAction(item, 'reject')}
-                            className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                          >
-                            {busyKey === `${item.id}:reject` ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                            Reject
-                          </Button>
-                        </>
-                      ) : (
-                        <p className="self-center text-xs text-muted-foreground/60">
-                          This is a reply draft or human-handoff item. Reply actions are handled separately from manual outreach approval.
-                        </p>
+                      <Button variant="outline" size="sm" disabled={isBusy || editing} onClick={() => beginEdit(item)}>
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        disabled={isBusy || editing}
+                        onClick={() => invokeReviewAction(item, 'approve')}
+                      >
+                        {busyKey === `${item.id}:approve` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {sendLabel(item)}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isBusy || editing}
+                        onClick={() => invokeReviewAction(item, 'reject')}
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                      >
+                        {busyKey === `${item.id}:reject` ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                        {rejectLabel(item)}
+                      </Button>
+
+                      {(item.kind === 'reply' || item.kind === 'human_handoff') && (
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to="/dashboard/conversations">
+                            <MessageSquare className="h-4 w-4" />
+                            View Conversation
+                          </Link>
+                        </Button>
                       )}
                     </div>
                   </div>
