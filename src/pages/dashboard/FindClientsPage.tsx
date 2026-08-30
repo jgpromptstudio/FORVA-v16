@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
+import { GuidanceCard } from '@/components/dashboard/GuidanceCard';
 import { ErrorBanner, EmptyState } from '@/components/dashboard/States';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,7 +74,6 @@ export function FindClientsPage() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function initCountries() {
       setCountriesLoading(true);
       setLocationError(null);
@@ -86,30 +86,23 @@ export function FindClientsPage() {
         if (!cancelled) setCountriesLoading(false);
       }
     }
-
     initCountries();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-
     async function refreshStates() {
       setStates([]);
       setCities([]);
       if (!form.country) return;
-
       setStatesLoading(true);
       setLocationError(null);
       try {
         const data = await loadStates(form.country);
         if (!cancelled) {
           setStates(data);
-          if (data.length === 0) {
-            setLocationError('No state or region data is available for this country yet.');
-          }
+          if (data.length === 0) setLocationError('No state or region data is available for this country yet.');
         }
       } catch {
         if (!cancelled) setLocationError('States or regions could not be loaded. Please try again.');
@@ -117,29 +110,22 @@ export function FindClientsPage() {
         if (!cancelled) setStatesLoading(false);
       }
     }
-
     refreshStates();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [form.country]);
 
   useEffect(() => {
     let cancelled = false;
-
     async function refreshCities() {
       setCities([]);
       if (!form.country || !form.stateCode) return;
-
       setCitiesLoading(true);
       setLocationError(null);
       try {
         const data = await loadCities(form.country, form.stateCode);
         if (!cancelled) {
           setCities(data);
-          if (data.length === 0) {
-            setLocationError('No city data is available for this state or region yet.');
-          }
+          if (data.length === 0) setLocationError('No city data is available for this state or region yet.');
         }
       } catch {
         if (!cancelled) setLocationError('Cities could not be loaded. Please try again.');
@@ -147,11 +133,8 @@ export function FindClientsPage() {
         if (!cancelled) setCitiesLoading(false);
       }
     }
-
     refreshCities();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [form.country, form.stateCode]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -178,15 +161,11 @@ export function FindClientsPage() {
     if (!serviceOffer) errors.serviceOffer = 'Service Offer is required';
 
     const desiredCount = Number.parseInt(form.desiredProspectCount, 10);
-    if (Number.isNaN(desiredCount) || desiredCount < 1) {
-      errors.desiredProspectCount = 'Desired prospects must be at least 1';
-    }
+    if (Number.isNaN(desiredCount) || desiredCount < 1) errors.desiredProspectCount = 'Desired prospects must be at least 1';
 
     const parsedScore = Number.parseInt(form.minimumScore, 10);
     const minimumScore = Number.isNaN(parsedScore) ? 70 : Math.min(100, Math.max(0, parsedScore));
-    if (!Number.isNaN(parsedScore) && (parsedScore < 0 || parsedScore > 100)) {
-      errors.minimumScore = 'Minimum score must be between 0 and 100';
-    }
+    if (!Number.isNaN(parsedScore) && (parsedScore < 0 || parsedScore > 100)) errors.minimumScore = 'Minimum score must be between 0 and 100';
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -211,39 +190,23 @@ export function FindClientsPage() {
       });
 
       if (saveError) throw new Error(saveError.message);
-
-      const profileId = typeof savedProfile === 'string'
-        ? savedProfile
-        : savedProfile?.id;
-
-      if (!profileId) {
-        throw new Error('Failed to save target profile: no profile ID returned. Please try again or contact support.');
-      }
+      const profileId = typeof savedProfile === 'string' ? savedProfile : savedProfile?.id;
+      if (!profileId) throw new Error('Failed to save target profile: no profile ID returned. Please try again or contact support.');
 
       const { data: queuedRun, error: queueError } = await supabase.rpc('queue_forva_acquisition_run', {
         p_target_profile_id: profileId,
       });
-
       if (queueError) throw new Error(formatAcquisitionError(queueError.message));
 
-      const runId = typeof queuedRun === 'string'
-        ? queuedRun
-        : queuedRun?.id;
-
-      if (!runId) {
-        throw new Error('Failed to queue acquisition run: no run ID returned.');
-      }
+      const runId = typeof queuedRun === 'string' ? queuedRun : queuedRun?.id;
+      if (!runId) throw new Error('Failed to queue acquisition run: no run ID returned.');
 
       const { error: invokeError } = await supabase.functions.invoke('start-forva-acquisition', {
         body: { run_id: runId },
       });
+      if (invokeError) throw new Error(formatAcquisitionError(invokeError.message));
 
-      if (invokeError) {
-        console.error('start-forva-acquisition error:', invokeError.message);
-        throw new Error(formatAcquisitionError(invokeError.message));
-      }
-
-      setSubmitSuccess('Acquisition run queued and started. You can track its status below.');
+      setSubmitSuccess('Acquisition run started. FORVA is now finding and processing matching businesses.');
       setForm(defaultForm);
       refreshRuns();
     } catch (err) {
@@ -255,12 +218,8 @@ export function FindClientsPage() {
 
   function updateField<K extends keyof FormState>(key: K, value: string) {
     setForm((current) => {
-      if (key === 'country') {
-        return { ...current, country: value, stateCode: '', city: '' };
-      }
-      if (key === 'stateCode') {
-        return { ...current, stateCode: value, city: '' };
-      }
+      if (key === 'country') return { ...current, country: value, stateCode: '', city: '' };
+      if (key === 'stateCode') return { ...current, stateCode: value, city: '' };
       return { ...current, [key]: value };
     });
     setFieldErrors((prev) => ({ ...prev, [key]: '' }));
@@ -270,11 +229,7 @@ export function FindClientsPage() {
   const errorInputClass = 'w-full rounded-lg border border-red-500/40 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
   return (
-    <WorkspaceGuard
-      workspaceLoading={wsLoading}
-      workspaceError={wsError}
-      workspaceId={workspaceId}
-    >
+    <WorkspaceGuard workspaceLoading={wsLoading} workspaceError={wsError} workspaceId={workspaceId}>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -282,63 +237,34 @@ export function FindClientsPage() {
               <Target className="h-5 w-5 text-primary" />
               Target Profile
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Define your ideal client criteria. FORVA will discover and process matching businesses.
-            </p>
+            <p className="text-xs text-muted-foreground">Tell FORVA who you want to reach and what you want to offer them.</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Country <span className="text-red-400">*</span></label>
-                  <select
-                    value={form.country}
-                    onChange={(e) => updateField('country', e.target.value)}
-                    disabled={countriesLoading}
-                    className={cn('mt-1', fieldErrors.country ? errorInputClass : inputClass)}
-                  >
+                  <select value={form.country} onChange={(e) => updateField('country', e.target.value)} disabled={countriesLoading} className={cn('mt-1', fieldErrors.country ? errorInputClass : inputClass)}>
                     <option value="">{countriesLoading ? 'Loading countries...' : 'Select country'}</option>
-                    {countries.map((country) => (
-                      <option key={country.iso2} value={country.iso2}>
-                        {country.emoji ? `${country.emoji} ` : ''}{country.name}
-                      </option>
-                    ))}
+                    {countries.map((country) => <option key={country.iso2} value={country.iso2}>{country.emoji ? `${country.emoji} ` : ''}{country.name}</option>)}
                   </select>
                   {fieldErrors.country && <p className="mt-1 text-xs text-red-400">{fieldErrors.country}</p>}
                 </div>
 
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">State / Region <span className="text-red-400">*</span></label>
-                  <select
-                    value={form.stateCode}
-                    onChange={(e) => updateField('stateCode', e.target.value)}
-                    disabled={!form.country || statesLoading}
-                    className={cn('mt-1', fieldErrors.stateCode ? errorInputClass : inputClass)}
-                  >
-                    <option value="">
-                      {statesLoading ? 'Loading regions...' : form.country ? 'Select state / region' : 'Select country first'}
-                    </option>
-                    {states.map((state) => (
-                      <option key={`${state.iso2}-${state.id}`} value={state.iso2}>{state.name}</option>
-                    ))}
+                  <select value={form.stateCode} onChange={(e) => updateField('stateCode', e.target.value)} disabled={!form.country || statesLoading} className={cn('mt-1', fieldErrors.stateCode ? errorInputClass : inputClass)}>
+                    <option value="">{statesLoading ? 'Loading regions...' : form.country ? 'Select state / region' : 'Select country first'}</option>
+                    {states.map((state) => <option key={`${state.iso2}-${state.id}`} value={state.iso2}>{state.name}</option>)}
                   </select>
                   {fieldErrors.stateCode && <p className="mt-1 text-xs text-red-400">{fieldErrors.stateCode}</p>}
                 </div>
 
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">City <span className="text-red-400">*</span></label>
-                  <select
-                    value={form.city}
-                    onChange={(e) => updateField('city', e.target.value)}
-                    disabled={!form.stateCode || citiesLoading}
-                    className={cn('mt-1', fieldErrors.city ? errorInputClass : inputClass)}
-                  >
-                    <option value="">
-                      {citiesLoading ? 'Loading cities...' : form.stateCode ? 'Select city' : 'Select state / region first'}
-                    </option>
-                    {cities.map((city) => (
-                      <option key={`${city.id}-${city.name}`} value={city.name}>{city.name}</option>
-                    ))}
+                  <select value={form.city} onChange={(e) => updateField('city', e.target.value)} disabled={!form.stateCode || citiesLoading} className={cn('mt-1', fieldErrors.city ? errorInputClass : inputClass)}>
+                    <option value="">{citiesLoading ? 'Loading cities...' : form.stateCode ? 'Select city' : 'Select state / region first'}</option>
+                    {cities.map((city) => <option key={`${city.id}-${city.name}`} value={city.name}>{city.name}</option>)}
                   </select>
                   {fieldErrors.city && <p className="mt-1 text-xs text-red-400">{fieldErrors.city}</p>}
                 </div>
@@ -351,147 +277,88 @@ export function FindClientsPage() {
                 </div>
               )}
 
-              <p className="text-[11px] text-muted-foreground/60">
-                Country, state and city choices use structured ISO location data from the Countries States Cities Database.
-              </p>
-
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Industry / Niche <span className="text-red-400">*</span></label>
-                <input
-                  type="text"
-                  value={form.niche}
-                  onChange={(e) => updateField('niche', e.target.value)}
-                  placeholder="e.g. Dental clinics"
-                  className={cn('mt-1', fieldErrors.niche ? errorInputClass : inputClass)}
-                />
+                <input type="text" value={form.niche} onChange={(e) => updateField('niche', e.target.value)} placeholder="e.g. Dental clinics" className={cn('mt-1', fieldErrors.niche ? errorInputClass : inputClass)} />
+                <p className="mt-1 text-xs text-muted-foreground/70">Who do you want as clients? Be specific, such as dental clinics, real estate agencies or accounting firms.</p>
                 {fieldErrors.niche && <p className="mt-1 text-xs text-red-400">{fieldErrors.niche}</p>}
               </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Service Offer <span className="text-red-400">*</span></label>
-                <input
-                  type="text"
-                  value={form.serviceOffer}
-                  onChange={(e) => updateField('serviceOffer', e.target.value)}
-                  placeholder="e.g. Web design and SEO"
-                  className={cn('mt-1', fieldErrors.serviceOffer ? errorInputClass : inputClass)}
-                />
+                <input type="text" value={form.serviceOffer} onChange={(e) => updateField('serviceOffer', e.target.value)} placeholder="e.g. Web design and SEO" className={cn('mt-1', fieldErrors.serviceOffer ? errorInputClass : inputClass)} />
+                <p className="mt-1 text-xs text-muted-foreground/70">What are you offering those businesses? FORVA uses this to judge fit and personalize outreach.</p>
                 {fieldErrors.serviceOffer && <p className="mt-1 text-xs text-red-400">{fieldErrors.serviceOffer}</p>}
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Desired Prospect Count</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.desiredProspectCount}
-                    onChange={(e) => updateField('desiredProspectCount', e.target.value)}
-                    className={cn('mt-1', fieldErrors.desiredProspectCount ? errorInputClass : inputClass)}
-                  />
+                  <input type="number" min="1" value={form.desiredProspectCount} onChange={(e) => updateField('desiredProspectCount', e.target.value)} className={cn('mt-1', fieldErrors.desiredProspectCount ? errorInputClass : inputClass)} />
+                  <p className="mt-1 text-xs text-muted-foreground/70">Your target, not a guaranteed number of qualified contacts.</p>
                   {fieldErrors.desiredProspectCount && <p className="mt-1 text-xs text-red-400">{fieldErrors.desiredProspectCount}</p>}
                 </div>
+
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Minimum Score</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={form.minimumScore}
-                    onChange={(e) => updateField('minimumScore', e.target.value)}
-                    className={cn('mt-1', fieldErrors.minimumScore ? errorInputClass : inputClass)}
-                  />
+                  <input type="number" min="0" max="100" value={form.minimumScore} onChange={(e) => updateField('minimumScore', e.target.value)} className={cn('mt-1', fieldErrors.minimumScore ? errorInputClass : inputClass)} />
+                  <p className="mt-1 text-xs text-muted-foreground/70">70 is a good starting point. Higher means stricter qualification.</p>
                   {fieldErrors.minimumScore && <p className="mt-1 text-xs text-red-400">{fieldErrors.minimumScore}</p>}
                 </div>
+
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Mode</label>
-                  <select
-                    value={form.mode}
-                    onChange={(e) => updateField('mode', e.target.value)}
-                    className={cn('mt-1', inputClass)}
-                  >
+                  <select value={form.mode} onChange={(e) => updateField('mode', e.target.value)} className={cn('mt-1', inputClass)}>
                     <option value="manual">Manual</option>
-                    <option value="auto_pilot">Autopilot</option>
+                    <option value="auto_pilot">Auto-Pilot</option>
                   </select>
                   <p className="mt-1 text-xs text-muted-foreground/70">
                     {form.mode === 'manual'
-                      ? 'FORVA finds and prepares prospects for your review before outreach is sent.'
-                      : 'FORVA can automatically send eligible outreach after all qualification and safety checks pass.'}
+                      ? 'You review messages before they are sent.'
+                      : 'Eligible messages can continue automatically using your saved Settings and safety rules.'}
                   </p>
                 </div>
               </div>
 
-              {submitError && (
-                <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                  <p className="text-xs text-destructive">{submitError}</p>
-                </div>
-              )}
-
-              {submitSuccess && (
-                <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                  <p className="text-xs text-emerald-400">{submitSuccess}</p>
-                </div>
-              )}
+              {submitError && <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" /><p className="text-xs text-destructive">{submitError}</p></div>}
+              {submitSuccess && <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /><p className="text-xs text-emerald-400">{submitSuccess}</p></div>}
 
               <Button type="submit" disabled={submitting || !workspaceId || countriesLoading || statesLoading || citiesLoading} className="w-full">
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Queuing run...
-                  </>
-                ) : (
-                  <>
-                    <Rocket className="h-4 w-4" />
-                    Launch Acquisition Run
-                  </>
-                )}
+                {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Queuing run...</> : <><Rocket className="h-4 w-4" />Launch Acquisition Run</>}
               </Button>
+
+              <GuidanceCard title="What happens after you click Launch">
+                <div className="space-y-2">
+                  <p>FORVA finds matching businesses, verifies them, scores their fit, looks for usable contact details and prepares personalized outreach.</p>
+                  <p>Not every discovered business will continue. A prospect must pass verification, qualification, contact and safety checks before FORVA can prepare or send outreach.</p>
+                  <p><span className="font-medium text-foreground">Manual:</span> review the draft in Review Queue before sending. <span className="font-medium text-foreground">Auto-Pilot:</span> eligible actions can continue automatically according to your saved Settings. Anything that needs your judgment is held for review.</p>
+                </div>
+              </GuidanceCard>
             </form>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Rocket className="h-5 w-5 text-primary" />
-              Recent Acquisition Runs
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2"><Rocket className="h-5 w-5 text-primary" />Recent Acquisition Runs</CardTitle>
+            <p className="text-xs text-muted-foreground">Track whether each search is queued, running, completed or needs attention.</p>
           </CardHeader>
           <CardContent>
             {runsError && <ErrorBanner error={runsError} />}
             {runsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
+              <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
             ) : runs.length === 0 ? (
-              <EmptyState message="No acquisition runs yet. Launch your first run using the form on the left." />
+              <EmptyState message="No acquisition runs yet. Complete the form on the left to start your first search." />
             ) : (
               <div className="space-y-3">
                 {runs.map((run) => (
                   <div key={run.id} className="rounded-lg bg-white/5 p-4">
                     <div className="flex items-center justify-between">
-                      <span className={cn(
-                        'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
-                        runStatusColors[run.status] ?? 'bg-white/10 text-muted-foreground border-white/20'
-                      )}>
-                        {capitalize(run.status)}
-                      </span>
-                      {run.created_at && (
-                        <span className="text-xs text-muted-foreground">{formatTimeAgo(run.created_at)}</span>
-                      )}
+                      <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', runStatusColors[run.status] ?? 'bg-white/10 text-muted-foreground border-white/20')}>{capitalize(run.status)}</span>
+                      {run.created_at && <span className="text-xs text-muted-foreground">{formatTimeAgo(run.created_at)}</span>}
                     </div>
-                    {run.requested_prospect_count !== null && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Requested prospects: <span className="font-medium text-foreground">{run.requested_prospect_count}</span>
-                      </p>
-                    )}
-                    {run.error_message && (
-                      <div className="mt-2 rounded-lg bg-red-500/10 p-2">
-                        <p className="text-xs text-red-400">{formatAcquisitionError(run.error_message)}</p>
-                      </div>
-                    )}
+                    {run.requested_prospect_count !== null && <p className="mt-2 text-xs text-muted-foreground">Requested prospects: <span className="font-medium text-foreground">{run.requested_prospect_count}</span></p>}
+                    {run.error_message && <div className="mt-2 rounded-lg bg-red-500/10 p-2"><p className="text-xs text-red-400">{formatAcquisitionError(run.error_message)}</p></div>}
                   </div>
                 ))}
               </div>
