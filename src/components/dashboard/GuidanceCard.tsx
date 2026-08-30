@@ -1,9 +1,10 @@
+import type { ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GuidanceCardProps {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
