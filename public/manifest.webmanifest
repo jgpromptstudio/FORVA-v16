@@ -1,0 +1,41 @@
+{
+  "id": "/",
+  "name": "FORVA Client Acquisition",
+  "short_name": "FORVA",
+  "description": "Find, qualify, contact, and follow up with potential clients from one workspace.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07151d",
+  "theme_color": "#19a99c",
+  "orientation": "any",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/forva-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Find Clients",
+      "short_name": "Find Clients",
+      "url": "/dashboard/find-clients",
+      "icons": [{ "src": "/forva-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Review Queue",
+      "short_name": "Review",
+      "url": "/dashboard/reviews",
+      "icons": [{ "src": "/forva-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Conversations",
+      "short_name": "Replies",
+      "url": "/dashboard/conversations",
+      "icons": [{ "src": "/forva-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
