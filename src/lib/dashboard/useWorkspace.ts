@@ -11,16 +11,16 @@ interface WorkspaceState {
 }
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-const isTransient = (message?: string | null) => /failed to fetch|network|load failed/i.test(String(message ?? ''));
+const isTransient = (message?: string | null) => /failed to fetch|network|load failed|timeout/i.test(String(message ?? ''));
+
+function workspaceMessage(message?: string | null): string {
+  if (isTransient(message)) return 'FORVA could not reach your workspace right now. Check your connection and try again.';
+  return 'Your workspace could not be loaded. Please try again. If the problem continues, contact support.';
+}
 
 export function useWorkspace() {
   const { user } = useAuth();
-  const [state, setState] = useState<WorkspaceState>({
-    workspaceId: null,
-    workspaceName: null,
-    loading: true,
-    error: null,
-  });
+  const [state, setState] = useState<WorkspaceState>({ workspaceId: null, workspaceName: null, loading: true, error: null });
 
   const fetchWorkspace = useCallback(async () => {
     if (!user?.id) {
@@ -40,7 +40,6 @@ export function useWorkspace() {
         ensureError = null;
         break;
       }
-
       ensureError = result.error.message;
       if (!isTransient(ensureError) || attempt === 2) break;
       await wait(350 * (attempt + 1));
@@ -48,16 +47,8 @@ export function useWorkspace() {
 
     const wsId = typeof ensuredWorkspaceId === 'string' ? ensuredWorkspaceId : null;
     if (!wsId) {
-      setState({
-        workspaceId: null,
-        workspaceName: null,
-        loading: false,
-        error: ensureError && isTransient(ensureError)
-          ? 'Workspace connection is temporarily unavailable. Please try again.'
-          : ensureError
-            ? `Workspace setup failed: ${ensureError}`
-            : 'Workspace setup did not return a workspace.',
-      });
+      console.error('FORVA workspace bootstrap failed', ensureError);
+      setState({ workspaceId: null, workspaceName: null, loading: false, error: workspaceMessage(ensureError) });
       return;
     }
 
@@ -65,47 +56,27 @@ export function useWorkspace() {
     let workspaceError: string | null = null;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const result = await supabase
-        .from('workspaces')
-        .select('id, name')
-        .eq('id', wsId)
-        .maybeSingle();
-
+      const result = await supabase.from('workspaces').select('id,name').eq('id', wsId).maybeSingle();
       if (!result.error) {
         workspace = result.data;
         workspaceError = null;
         break;
       }
-
       workspaceError = result.error.message;
       if (!isTransient(workspaceError) || attempt === 1) break;
       await wait(350 * (attempt + 1));
     }
 
     if (workspaceError) {
-      setState({
-        workspaceId: null,
-        workspaceName: null,
-        loading: false,
-        error: isTransient(workspaceError)
-          ? 'Workspace connection is temporarily unavailable. Please try again.'
-          : `Workspace load failed: ${workspaceError}`,
-      });
+      console.error('FORVA workspace load failed', workspaceError);
+      setState({ workspaceId: null, workspaceName: null, loading: false, error: workspaceMessage(workspaceError) });
       return;
     }
 
-    setState({
-      workspaceId: wsId,
-      workspaceName: workspace?.name ?? null,
-      loading: false,
-      error: null,
-    });
+    setState({ workspaceId: wsId, workspaceName: workspace?.name ?? null, loading: false, error: null });
   }, [user?.id]);
 
-  useEffect(() => {
-    fetchWorkspace();
-  }, [fetchWorkspace]);
-
+  useEffect(() => { void fetchWorkspace(); }, [fetchWorkspace]);
   return { ...state, refresh: fetchWorkspace };
 }
 
@@ -117,12 +88,7 @@ interface CreditState {
 }
 
 export function useCreditAccount(workspaceId: string | null) {
-  const [state, setState] = useState<CreditState>({
-    data: null,
-    loading: true,
-    error: null,
-    reason: null,
-  });
+  const [state, setState] = useState<CreditState>({ data: null, loading: true, error: null, reason: null });
 
   const fetchCredits = useCallback(async () => {
     if (!workspaceId) {
@@ -131,49 +97,30 @@ export function useCreditAccount(workspaceId: string | null) {
     }
 
     setState((s) => ({ ...s, loading: true, error: null, reason: null }));
-
     let responseData: unknown = null;
     let responseError: string | null = null;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const result = await supabase.rpc('get_forva_credit_account', {
-        p_workspace_id: workspaceId,
-      });
-
+      const result = await supabase.rpc('get_forva_credit_account', { p_workspace_id: workspaceId });
       if (!result.error) {
         responseData = result.data;
         responseError = null;
         break;
       }
-
       responseError = result.error.message;
       if (!isTransient(responseError) || attempt === 1) break;
       await wait(350 * (attempt + 1));
     }
 
     if (responseError) {
-      setState({
-        data: null,
-        loading: false,
-        error: isTransient(responseError)
-          ? 'Credit status is temporarily unavailable. Please try again.'
-          : `Credit status failed: ${responseError}`,
-        reason: null,
-      });
+      console.error('FORVA credit lookup failed', responseError);
+      setState({ data: null, loading: false, error: 'Credit status is temporarily unavailable. Please refresh and try again.', reason: null });
       return;
     }
 
-    const payload = responseData && typeof responseData === 'object'
-      ? (responseData as Record<string, unknown>)
-      : null;
-
+    const payload = responseData && typeof responseData === 'object' ? (responseData as Record<string, unknown>) : null;
     if (!payload || payload.ok !== true) {
-      setState({
-        data: null,
-        loading: false,
-        error: null,
-        reason: typeof payload?.reason === 'string' ? payload.reason : 'credit_account_not_provisioned',
-      });
+      setState({ data: null, loading: false, error: null, reason: typeof payload?.reason === 'string' ? payload.reason : 'credit_account_not_provisioned' });
       return;
     }
 
@@ -194,9 +141,6 @@ export function useCreditAccount(workspaceId: string | null) {
     });
   }, [workspaceId]);
 
-  useEffect(() => {
-    fetchCredits();
-  }, [fetchCredits]);
-
+  useEffect(() => { void fetchCredits(); }, [fetchCredits]);
   return { ...state, refresh: fetchCredits };
 }
