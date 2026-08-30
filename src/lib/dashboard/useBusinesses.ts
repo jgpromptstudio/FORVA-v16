@@ -21,11 +21,12 @@ export function useBusinesses(workspaceId: string | null, search: string, stateF
 
     let query = supabase
       .from('businesses')
-      .select('id, name, domain, website_url, city, country_code, verification_status, public_email, phone, state, updated_at', { count: 'exact' })
+      .select('id, name, domain, website_url, city, region, country_code, address_text, operational_status, verification_status, verified_at, public_email, phone, state, updated_at', { count: 'exact' })
       .eq('workspace_id', workspaceId);
 
     if (search.trim()) {
-      query = query.or(`name.ilike.%${search.trim()}%,domain.ilike.%${search.trim()}%,public_email.ilike.%${search.trim}%`);
+      const safeSearch = search.trim().replace(/[(),]/g, ' ');
+      query = query.or(`name.ilike.%${safeSearch}%,domain.ilike.%${safeSearch}%,public_email.ilike.%${safeSearch}%`);
     }
     if (stateFilter !== 'all') {
       query = query.eq('state', stateFilter);
@@ -41,7 +42,7 @@ export function useBusinesses(workspaceId: string | null, search: string, stateF
     const { data, error, count } = await query;
 
     if (error) {
-      setState({ data: [], loading: false, error: `businesses: ${error.message}`, count: 0 });
+      setState({ data: [], loading: false, error: 'Prospects could not be loaded. Please refresh and try again.', count: 0 });
       return;
     }
 
