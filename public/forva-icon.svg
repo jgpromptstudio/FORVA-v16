@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FORVA">
+  <rect width="512" height="512" rx="112" fill="#07151d"/>
+  <path d="M126 112h250l-34 64H196l-24 48h139l-34 64H140l-74 112H-2l128-288Z" fill="#20b8aa" transform="translate(44 0)"/>
+  <path d="M170 176h172l-31 58H142l28-58Z" fill="#55e0c2" opacity=".86"/>
+</svg>
