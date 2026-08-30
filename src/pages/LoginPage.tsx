@@ -132,14 +132,12 @@ export function LoginPage() {
         </Button>
       </form>
 
-      {/* Divider */}
       <div className="my-6 flex items-center gap-4">
         <div className="h-px flex-1 bg-white/10" />
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">or</span>
         <div className="h-px flex-1 bg-white/10" />
       </div>
 
-      {/* Google button */}
       <Button
         variant="outline"
         className="w-full"
@@ -151,7 +149,7 @@ export function LoginPage() {
         ) : (
           <GoogleIcon className="h-5 w-5" />
         )}
-        Continue with Google
+        Log in with Google
       </Button>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
