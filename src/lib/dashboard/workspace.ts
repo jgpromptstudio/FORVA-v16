@@ -58,16 +58,21 @@ export interface FollowupRow {
   business_name: string;
 }
 
+export type ReviewKind = 'first_outreach' | 'followup' | 'reply' | 'human_handoff';
+
 export interface ReviewRow {
   id: string;
   business_name: string;
   type: string;
+  kind: ReviewKind;
   intent: string | null;
   priority: 'High' | 'Medium' | 'Low';
   subject?: string | null;
   body: string | null;
   occurred_at: string | null;
-  source?: 'conversation_draft' | 'manual_outreach';
+  source: 'conversation_draft' | 'manual_outreach';
+  conversation_id?: string | null;
+  followup_id?: string | null;
 }
 
 export interface ActivityItem {
@@ -137,10 +142,11 @@ export function formatTimeAgo(dateStr: string): string {
 }
 
 export function mapReviewType(provider: string | null, intent: string | null): string {
-  if (provider === 'forva_human_handoff' && intent === 'pricing_question') return 'Pricing Question';
-  if (provider === 'forva_human_handoff' && intent === 'wants_meeting') return 'Meeting Request';
-  if (provider === 'openai_draft') return 'AI Draft Review';
-  return 'Needs Review';
+  if (provider === 'forva_human_handoff' && intent === 'pricing_question') return 'Human Review: Pricing Question';
+  if (provider === 'forva_human_handoff' && intent === 'wants_meeting') return 'Human Review: Meeting Request';
+  if (provider === 'forva_human_handoff') return 'Human Review Required';
+  if (provider === 'openai_draft') return 'Reply Draft';
+  return 'Reply Draft';
 }
 
 export function mapPriority(intent: string | null): 'High' | 'Medium' | 'Low' {
@@ -172,12 +178,12 @@ export function formatAcquisitionError(error: string | null): string {
 }
 
 export function formatStopReason(reason: string | null): string {
-  if (!reason) return '\u2014';
+  if (!reason) return 'Not applicable';
   const map: Record<string, string> = {
     'inbound_reply:interested': 'Prospect replied: interested',
     'inbound_reply:not_interested': 'Prospect replied: not interested',
-    'unsubscribe': 'Unsubscribed',
-    'not_interested': 'Not interested',
+    unsubscribe: 'Unsubscribed',
+    not_interested: 'Not interested',
   };
   if (map[reason]) return map[reason];
   return reason.replace(/[:_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
