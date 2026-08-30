@@ -17,28 +17,25 @@ export function useOutreach(workspaceId: string | null) {
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
-    const errors: string[] = [];
 
     const { data: outreach, error } = await supabase
       .from('outreach_messages')
-      .select('id, business_id, contact_id, channel, subject, status, approval_state, sent_at, provider_message_id')
+      .select('id,business_id,contact_id,channel,subject,body,status,approval_state,sent_at,provider_message_id,last_error,send_attempt_count')
       .eq('workspace_id', workspaceId)
-      .order('sent_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) errors.push(`outreach_messages: ${error.message}`);
+    if (error) {
+      setState({ data: [], loading: false, error: 'Outreach history could not be loaded. Please refresh and try again.' });
+      return;
+    }
 
-    const outreachList = (outreach as Array<{ id: string; business_id: string | null; contact_id: string | null; channel: string | null; subject: string | null; status: string | null; approval_state: string | null; sent_at: string | null; provider_message_id: string | null }> | null) ?? [];
-
+    const outreachList = (outreach as Array<Omit<OutreachRow, 'business_name' | 'contact_name' | 'contact_email' | 'business_public_email'>> | null) ?? [];
     const bizIds = outreachList.map((o) => o.business_id).filter((id): id is string => id !== null);
     const bizMap = new Map<string, { name: string; public_email: string | null }>();
 
     if (bizIds.length > 0) {
-      const { data: bizData, error: bizError } = await supabase
-        .from('businesses')
-        .select('id, name, public_email')
-        .in('id', bizIds);
-      if (bizError) errors.push(`businesses: ${bizError.message}`);
+      const { data: bizData } = await supabase.from('businesses').select('id,name,public_email').in('id', bizIds);
       if (bizData) for (const b of bizData) bizMap.set(b.id, { name: b.name, public_email: b.public_email });
     }
 
@@ -46,11 +43,7 @@ export function useOutreach(workspaceId: string | null) {
     const contactMap = new Map<string, { full_name: string | null; email: string | null }>();
 
     if (contactIds.length > 0) {
-      const { data: contactData, error: contactError } = await supabase
-        .from('contacts')
-        .select('id, full_name, email')
-        .in('id', contactIds);
-      if (contactError) errors.push(`contacts: ${contactError.message}`);
+      const { data: contactData } = await supabase.from('contacts').select('id,full_name,email').in('id', contactIds);
       if (contactData) for (const c of contactData) contactMap.set(c.id, { full_name: c.full_name, email: c.email });
     }
 
@@ -58,23 +51,15 @@ export function useOutreach(workspaceId: string | null) {
       const biz = o.business_id ? bizMap.get(o.business_id) : null;
       const contact = o.contact_id ? contactMap.get(o.contact_id) : null;
       return {
-        id: o.id,
-        business_id: o.business_id,
-        contact_id: o.contact_id,
-        channel: o.channel,
-        subject: o.subject,
-        status: o.status,
-        approval_state: o.approval_state,
-        sent_at: o.sent_at,
-        provider_message_id: o.provider_message_id,
-        business_name: biz?.name ?? 'Unknown',
+        ...o,
+        business_name: biz?.name ?? 'Unknown business',
         contact_name: contact?.full_name ?? null,
         contact_email: contact?.email ?? null,
         business_public_email: biz?.public_email ?? null,
       };
     });
 
-    setState({ data: rows, loading: false, error: errors.length > 0 ? errors.join('; ') : null });
+    setState({ data: rows, loading: false, error: null });
   }, [workspaceId]);
 
   useEffect(() => {
