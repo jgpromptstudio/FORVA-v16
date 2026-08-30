@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AdminRoute } from '@/components/AdminRoute';
@@ -23,6 +23,8 @@ import { OutreachPage } from '@/pages/dashboard/OutreachPage';
 import { ConversationsPage } from '@/pages/dashboard/ConversationsPage';
 import { FollowupsPage } from '@/pages/dashboard/FollowupsPage';
 import { ReviewsPage } from '@/pages/dashboard/ReviewsPage';
+import { DealsPage } from '@/pages/dashboard/DealsPage';
+import { NotificationsPage } from '@/pages/dashboard/NotificationsPage';
 import { BillingPage } from '@/pages/dashboard/BillingPage';
 import { SettingsPage } from '@/pages/dashboard/SettingsPage';
 import { SupportPage } from '@/pages/dashboard/SupportPage';
@@ -39,14 +41,20 @@ import { AdminReviewsPage } from '@/pages/admin/AdminReviewsPage';
 import { AdminBillingPage } from '@/pages/admin/AdminBillingPage';
 import { AdminSystemPage } from '@/pages/admin/AdminSystemPage';
 
+function UserRoute({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute>{children}</ProtectedRoute>;
+}
+
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  return <AdminRoute>{children}</AdminRoute>;
+}
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<MarketingPage />} />
-
-          {/* Public legal/trust pages */}
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/acceptable-use" element={<AcceptableUsePage />} />
@@ -55,218 +63,39 @@ function App() {
           <Route path="/responsible-outreach" element={<ResponsibleOutreachPage />} />
           <Route path="/security" element={<SecurityPage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route
-            path="/login"
-            element={
-              <AuthRoute>
-                <LoginPage />
-              </AuthRoute>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <AuthRoute>
-                <SignupPage />
-              </AuthRoute>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <AuthRoute>
-                <ForgotPasswordPage />
-              </AuthRoute>
-            }
-          />
-          <Route
-            path="/update-password"
-            element={
-              <AuthRoute>
-                <UpdatePasswordPage />
-              </AuthRoute>
-            }
-          />
 
-          {/* User dashboard routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <OverviewPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/find-clients"
-            element={
-              <ProtectedRoute>
-                <FindClientsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/prospects"
-            element={
-              <ProtectedRoute>
-                <ProspectsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/outreach"
-            element={
-              <ProtectedRoute>
-                <OutreachPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/conversations"
-            element={
-              <ProtectedRoute>
-                <ConversationsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/followups"
-            element={
-              <ProtectedRoute>
-                <FollowupsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/reviews"
-            element={
-              <ProtectedRoute>
-                <ReviewsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/billing"
-            element={
-              <ProtectedRoute>
-                <BillingPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/support"
-            element={
-              <ProtectedRoute>
-                <SupportPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/settings"
-            element={
-              <ProtectedRoute>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+          <Route path="/signup" element={<AuthRoute><SignupPage /></AuthRoute>} />
+          <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
+          <Route path="/update-password" element={<AuthRoute><UpdatePasswordPage /></AuthRoute>} />
 
-          {/* Admin dashboard routes */}
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
-                <AdminOverviewPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/analytics"
-            element={
-              <AdminRoute>
-                <AdminAnalyticsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <AdminRoute>
-                <AdminUsersPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/workspaces"
-            element={
-              <AdminRoute>
-                <AdminWorkspacesPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/runs"
-            element={
-              <AdminRoute>
-                <AdminRunsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/prospects"
-            element={
-              <AdminRoute>
-                <AdminProspectsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/outreach"
-            element={
-              <AdminRoute>
-                <AdminOutreachPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/conversations"
-            element={
-              <AdminRoute>
-                <AdminConversationsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/followups"
-            element={
-              <AdminRoute>
-                <AdminFollowupsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/reviews"
-            element={
-              <AdminRoute>
-                <AdminReviewsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/billing"
-            element={
-              <AdminRoute>
-                <AdminBillingPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/system"
-            element={
-              <AdminRoute>
-                <AdminSystemPage />
-              </AdminRoute>
-            }
-          />
+          <Route path="/dashboard" element={<UserRoute><OverviewPage /></UserRoute>} />
+          <Route path="/dashboard/find-clients" element={<UserRoute><FindClientsPage /></UserRoute>} />
+          <Route path="/dashboard/prospects" element={<UserRoute><ProspectsPage /></UserRoute>} />
+          <Route path="/dashboard/reviews" element={<UserRoute><ReviewsPage /></UserRoute>} />
+          <Route path="/dashboard/outreach" element={<UserRoute><OutreachPage /></UserRoute>} />
+          <Route path="/dashboard/conversations" element={<UserRoute><ConversationsPage /></UserRoute>} />
+          <Route path="/dashboard/followups" element={<UserRoute><FollowupsPage /></UserRoute>} />
+          <Route path="/dashboard/deals" element={<UserRoute><DealsPage /></UserRoute>} />
+          <Route path="/dashboard/notifications" element={<UserRoute><NotificationsPage /></UserRoute>} />
+          <Route path="/dashboard/billing" element={<UserRoute><BillingPage /></UserRoute>} />
+          <Route path="/dashboard/settings" element={<UserRoute><SettingsPage /></UserRoute>} />
+          <Route path="/dashboard/support" element={<UserRoute><SupportPage /></UserRoute>} />
+
+          <Route path="/admin" element={<AdminOnlyRoute><AdminOverviewPage /></AdminOnlyRoute>} />
+          <Route path="/admin/analytics" element={<AdminOnlyRoute><AdminAnalyticsPage /></AdminOnlyRoute>} />
+          <Route path="/admin/users" element={<AdminOnlyRoute><AdminUsersPage /></AdminOnlyRoute>} />
+          <Route path="/admin/workspaces" element={<AdminOnlyRoute><AdminWorkspacesPage /></AdminOnlyRoute>} />
+          <Route path="/admin/runs" element={<AdminOnlyRoute><AdminRunsPage /></AdminOnlyRoute>} />
+          <Route path="/admin/prospects" element={<AdminOnlyRoute><AdminProspectsPage /></AdminOnlyRoute>} />
+          <Route path="/admin/outreach" element={<AdminOnlyRoute><AdminOutreachPage /></AdminOnlyRoute>} />
+          <Route path="/admin/conversations" element={<AdminOnlyRoute><AdminConversationsPage /></AdminOnlyRoute>} />
+          <Route path="/admin/followups" element={<AdminOnlyRoute><AdminFollowupsPage /></AdminOnlyRoute>} />
+          <Route path="/admin/reviews" element={<AdminOnlyRoute><AdminReviewsPage /></AdminOnlyRoute>} />
+          <Route path="/admin/billing" element={<AdminOnlyRoute><AdminBillingPage /></AdminOnlyRoute>} />
+          <Route path="/admin/system" element={<AdminOnlyRoute><AdminSystemPage /></AdminOnlyRoute>} />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
