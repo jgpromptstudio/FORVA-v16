@@ -30,18 +30,29 @@
 }
 
 @layer base {
-  * {
+  *, *::before, *::after {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   html {
+    min-width: 320px;
+    min-height: 100%;
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body,
+  #root {
+    min-width: 320px;
+    min-height: 100%;
   }
 
   body {
     @apply bg-background text-foreground font-body antialiased;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -53,7 +64,24 @@
     @apply font-body;
   }
 
-  /* Keep native select popups readable on Windows/Chromium dark dashboards. */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
   select {
     color-scheme: dark;
   }
@@ -61,6 +89,13 @@
   select option {
     background-color: hsl(var(--popover));
     color: hsl(var(--popover-foreground));
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
   }
 
   ::selection {
@@ -80,11 +115,7 @@
   }
 
   .clay {
-    background: linear-gradient(
-      145deg,
-      hsla(var(--secondary), 0.9),
-      hsla(var(--background), 0.6)
-    );
+    background: linear-gradient(145deg, hsla(var(--secondary), 0.9), hsla(var(--background), 0.6));
     border: 1px solid hsla(var(--border), 0.12);
     box-shadow:
       0 4px 24px -4px hsla(202, 80%, 2%, 0.5),
@@ -125,7 +156,7 @@
   }
 
   .section-padding {
-    @apply px-6 py-20 md:px-8 md:py-28 lg:py-32;
+    @apply px-4 py-16 sm:px-6 sm:py-20 md:px-8 md:py-28 lg:py-32;
   }
 
   .nav-underline {
@@ -171,6 +202,24 @@
       radial-gradient(ellipse 60% 40% at 80% 30%, hsla(var(--accent), 0.06), transparent 50%),
       radial-gradient(ellipse 50% 40% at 20% 70%, hsla(var(--gold), 0.04), transparent 50%),
       hsl(var(--background));
+  }
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  table {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (hover: none) {
+  .clay-hover:hover {
+    transform: none;
   }
 }
 
