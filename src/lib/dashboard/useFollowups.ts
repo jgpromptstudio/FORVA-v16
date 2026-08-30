@@ -17,45 +17,37 @@ export function useFollowups(workspaceId: string | null, statusFilter: string) {
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
-    const errors: string[] = [];
 
     let query = supabase
       .from('followups')
-      .select('id, business_id, scheduled_for, status, stop_reason')
+      .select('id,business_id,scheduled_for,status,stop_reason,sequence_no,mode,attempt_count,sent_at,draft_subject,draft_body,last_error')
       .eq('workspace_id', workspaceId)
       .order('scheduled_for', { ascending: false, nullsFirst: false })
       .limit(50);
 
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
-    }
+    if (statusFilter !== 'all') query = query.eq('status', statusFilter);
 
     const { data: followups, error } = await query;
-    if (error) errors.push(`followups: ${error.message}`);
+    if (error) {
+      setState({ data: [], loading: false, error: 'Follow-ups could not be loaded. Please refresh and try again.' });
+      return;
+    }
 
-    const followupList = (followups as Array<{ id: string; business_id: string | null; scheduled_for: string | null; status: string | null; stop_reason: string | null }> | null) ?? [];
+    const followupList = (followups as Array<Omit<FollowupRow, 'business_name'>> | null) ?? [];
     const bizIds = followupList.map((f) => f.business_id).filter((id): id is string => id !== null);
     const bizMap = new Map<string, string>();
 
     if (bizIds.length > 0) {
-      const { data: bizData, error: bizError } = await supabase
-        .from('businesses')
-        .select('id, name')
-        .in('id', bizIds);
-      if (bizError) errors.push(`businesses: ${bizError.message}`);
+      const { data: bizData } = await supabase.from('businesses').select('id,name').in('id', bizIds);
       if (bizData) for (const b of bizData) bizMap.set(b.id, b.name);
     }
 
     const rows: FollowupRow[] = followupList.map((f) => ({
-      id: f.id,
-      business_id: f.business_id,
-      scheduled_for: f.scheduled_for,
-      status: f.status,
-      stop_reason: f.stop_reason,
-      business_name: f.business_id ? (bizMap.get(f.business_id) ?? 'Unknown') : 'Unknown',
+      ...f,
+      business_name: f.business_id ? (bizMap.get(f.business_id) ?? 'Unknown business') : 'Unknown business',
     }));
 
-    setState({ data: rows, loading: false, error: errors.length > 0 ? errors.join('; ') : null });
+    setState({ data: rows, loading: false, error: null });
   }, [workspaceId, statusFilter]);
 
   useEffect(() => {
