@@ -4,8 +4,12 @@ export interface BusinessRow {
   domain: string;
   website_url: string | null;
   city: string | null;
+  region: string | null;
   country_code: string | null;
+  address_text: string | null;
+  operational_status: string | null;
   verification_status: string | null;
+  verified_at: string | null;
   public_email: string | null;
   phone: string | null;
   state: string | null;
@@ -18,10 +22,13 @@ export interface OutreachRow {
   contact_id: string | null;
   channel: string | null;
   subject: string | null;
+  body?: string | null;
   status: string | null;
   approval_state: string | null;
   sent_at: string | null;
   provider_message_id: string | null;
+  last_error?: string | null;
+  send_attempt_count?: number | null;
   business_name: string;
   contact_name: string | null;
   contact_email: string | null;
@@ -55,6 +62,13 @@ export interface FollowupRow {
   scheduled_for: string | null;
   status: string | null;
   stop_reason: string | null;
+  sequence_no?: number | null;
+  mode?: string | null;
+  attempt_count?: number | null;
+  sent_at?: string | null;
+  draft_subject?: string | null;
+  draft_body?: string | null;
+  last_error?: string | null;
   business_name: string;
 }
 
