@@ -16,15 +16,17 @@ export function useReviews(workspaceId: string | null) {
       setState({ data: [], loading: false, error: null });
       return;
     }
+
     setState((s) => ({ ...s, loading: true, error: null }));
     const errors: string[] = [];
 
     const { data: drafts, error: draftError } = await supabase
       .from('messages')
-      .select('id, direction, status, subject, body, intent, provider, conversation_id, occurred_at')
+      .select('id, direction, status, subject, body, intent, provider, conversation_id, occurred_at, approval_state')
       .eq('workspace_id', workspaceId)
       .eq('direction', 'outbound')
       .eq('status', 'draft')
+      .eq('approval_state', 'pending')
       .in('provider', ['forva_human_handoff', 'openai_draft'])
       .order('occurred_at', { ascending: false })
       .limit(50);
@@ -33,7 +35,7 @@ export function useReviews(workspaceId: string | null) {
 
     const { data: manualOutreach, error: manualOutreachError } = await supabase
       .from('outreach_messages')
-      .select('id, business_id, subject, body, approval_state, status, created_at')
+      .select('id, business_id, followup_id, subject, body, approval_state, status, created_at')
       .eq('workspace_id', workspaceId)
       .eq('status', 'draft')
       .eq('approval_state', 'pending')
@@ -42,11 +44,28 @@ export function useReviews(workspaceId: string | null) {
 
     if (manualOutreachError) errors.push(`outreach_messages (manual review): ${manualOutreachError.message}`);
 
-    const draftList = (drafts as Array<{ id: string; intent: string | null; provider: string | null; conversation_id: string | null; occurred_at: string | null; body: string | null; subject: string | null }> | null) ?? [];
-    const manualList = (manualOutreach as Array<{ id: string; business_id: string | null; subject: string | null; body: string | null; created_at: string | null }> | null) ?? [];
+    const draftList = (drafts as Array<{
+      id: string;
+      intent: string | null;
+      provider: string | null;
+      conversation_id: string | null;
+      occurred_at: string | null;
+      body: string | null;
+      subject: string | null;
+    }> | null) ?? [];
+
+    const manualList = (manualOutreach as Array<{
+      id: string;
+      business_id: string | null;
+      followup_id: string | null;
+      subject: string | null;
+      body: string | null;
+      created_at: string | null;
+    }> | null) ?? [];
 
     const businessMap = new Map<string, string>();
     const manualBizIds = manualList.map((d) => d.business_id).filter((id): id is string => id !== null);
+
     if (manualBizIds.length > 0) {
       const { data: manualBusinesses, error: bizError } = await supabase
         .from('businesses')
@@ -86,24 +105,30 @@ export function useReviews(workspaceId: string | null) {
       id: d.id,
       business_name: d.conversation_id ? (convBizMap.get(d.conversation_id) ?? 'Unknown') : 'Unknown',
       type: mapReviewType(d.provider, d.intent),
+      kind: d.provider === 'forva_human_handoff' ? 'human_handoff' : 'reply',
       intent: d.intent,
       priority: mapPriority(d.intent),
       subject: d.subject,
       body: d.body,
       occurred_at: d.occurred_at,
       source: 'conversation_draft',
+      conversation_id: d.conversation_id,
+      followup_id: null,
     }));
 
     const manualRows: ReviewRow[] = manualList.map((d) => ({
       id: d.id,
       business_name: d.business_id ? (businessMap.get(d.business_id) ?? 'Unknown') : 'Unknown',
-      type: 'Manual Outreach Review',
+      type: d.followup_id ? 'Follow-up Draft' : 'First Email Draft',
+      kind: d.followup_id ? 'followup' : 'first_outreach',
       intent: null,
       priority: 'Medium',
       subject: d.subject,
       body: d.body,
       occurred_at: d.created_at,
       source: 'manual_outreach',
+      conversation_id: null,
+      followup_id: d.followup_id,
     }));
 
     const rows = [...conversationRows, ...manualRows].sort((a, b) => {
