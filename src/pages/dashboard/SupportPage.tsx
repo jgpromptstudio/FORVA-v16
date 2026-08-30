@@ -8,13 +8,15 @@ import { LifeBuoy, Mail, Shield, AlertCircle } from 'lucide-react';
 
 export function SupportPage() {
   const { user } = useAuth();
-  const { workspaceId, loading: wsLoading, error: wsError } = useWorkspace();
+  const { workspaceId, loading: wsLoading, error: wsError, refresh: refreshWorkspace } = useWorkspace();
 
   return (
     <WorkspaceGuard
       workspaceLoading={wsLoading}
       workspaceError={wsError}
       workspaceId={workspaceId}
+      onRefresh={refreshWorkspace}
+      refreshing={wsLoading}
     >
       <div className="space-y-6">
         <Card>
@@ -34,13 +36,20 @@ export function SupportPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">Account and billing support</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    For account access issues, use the forgot-password flow on the login page. Billing management will be available through your account once payment integration is connected.
+                    For account access issues, use the forgot-password flow. For plans, credits, and billing, use Credits & Billing in your dashboard.
                   </p>
-                  <Link to="/forgot-password">
-                    <Button variant="outline" size="sm" className="mt-3">
-                      Reset Password
-                    </Button>
-                  </Link>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link to="/forgot-password">
+                      <Button variant="outline" size="sm">
+                        Reset Password
+                      </Button>
+                    </Link>
+                    <Link to="/dashboard/billing">
+                      <Button variant="outline" size="sm">
+                        Credits & Billing
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </div>
 
