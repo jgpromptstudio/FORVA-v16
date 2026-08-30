@@ -11,13 +11,11 @@ import { AlertCircle, CheckCircle2, Loader2, LogOut, Save, ShieldCheck } from 'l
 interface SenderIdentityForm {
   from_name: string;
   from_email: string;
-  postal_address: string;
 }
 
 const emptyForm: SenderIdentityForm = {
   from_name: '',
   from_email: '',
-  postal_address: '',
 };
 
 export function SettingsPage() {
@@ -57,7 +55,6 @@ export function SettingsPage() {
       setForm({
         from_name: typeof identity.from_name === 'string' ? identity.from_name : '',
         from_email: typeof identity.from_email === 'string' ? identity.from_email : '',
-        postal_address: typeof identity.postal_address === 'string' ? identity.postal_address : '',
       });
       setLoading(false);
     }
@@ -75,10 +72,9 @@ export function SettingsPage() {
 
     const fromName = form.from_name.trim();
     const fromEmail = form.from_email.trim();
-    const postalAddress = form.postal_address.trim();
 
-    if (!fromName || !fromEmail || !postalAddress) {
-      setError('Sender name, sender email, and real business/postal address are required.');
+    if (!fromName || !fromEmail) {
+      setError('Sender name and sender email are required.');
       setSuccess(null);
       return;
     }
@@ -105,7 +101,6 @@ export function SettingsPage() {
       ...existing,
       from_name: fromName,
       from_email: fromEmail,
-      postal_address: postalAddress,
     };
 
     const { error: updateError } = await supabase
@@ -120,8 +115,8 @@ export function SettingsPage() {
       return;
     }
 
-    setForm({ from_name: fromName, from_email: fromEmail, postal_address: postalAddress });
-    setSuccess('Sender identity saved. FORVA will use this real address for outreach compliance checks.');
+    setForm({ from_name: fromName, from_email: fromEmail });
+    setSuccess('Sender identity saved. New outreach will use this sender name and email.');
     setSaving(false);
   }
 
@@ -165,10 +160,10 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              Sender Identity & Compliance
+              Sender Identity
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Set the real sender identity FORVA should use for outreach. Your business/postal address is stored with your workspace and used automatically when a country requires it.
+              Choose the sender name and email prospects will see in their inbox. Compliance details are managed by FORVA automatically.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -187,6 +182,9 @@ export function SettingsPage() {
                     placeholder="FORVA"
                     className={inputClass}
                   />
+                  <p className="mt-1 text-xs text-muted-foreground/70">
+                    This is the name prospects will see as the sender.
+                  </p>
                 </div>
 
                 <div>
@@ -198,19 +196,8 @@ export function SettingsPage() {
                     placeholder="hello@forva.net"
                     className={inputClass}
                   />
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Real Business / Postal Address</label>
-                  <textarea
-                    value={form.postal_address}
-                    onChange={(e) => setForm((f) => ({ ...f, postal_address: e.target.value }))}
-                    placeholder="Street / Building, City, State/Province, Postal Code, Country"
-                    rows={3}
-                    className={inputClass}
-                  />
                   <p className="mt-1 text-xs text-muted-foreground/70">
-                    Enter your real sender address once. FORVA does not invent an address from the prospect country.
+                    This is the email address prospects will see in the From field.
                   </p>
                 </div>
 
