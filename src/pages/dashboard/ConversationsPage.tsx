@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { WorkspaceGuard } from '@/components/dashboard/WorkspaceGuard';
+import { GuidanceCard } from '@/components/dashboard/GuidanceCard';
 import { ErrorBanner, LoadingState, EmptyState } from '@/components/dashboard/States';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useConversations, useConversationMessages } from '@/lib/dashboard/useConversations';
 import { useWorkspace } from '@/lib/dashboard/useWorkspace';
 import { cn } from '@/lib/utils';
 import { formatTimeAgo } from '@/lib/dashboard/workspace';
-import { MessageSquare, ArrowLeft, ArrowRight } from 'lucide-react';
+import { MessageSquare, ArrowLeft, ArrowRight, ClipboardCheck } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   active: 'text-emerald-400',
@@ -34,6 +37,7 @@ export function ConversationsPage() {
   const { messages, loading: msgLoading, error: msgError } = useConversationMessages(workspaceId, selectedId);
 
   const selected = conversations.find((c) => c.id === selectedId);
+  const pendingDraft = messages.find((msg) => msg.direction === 'outbound' && msg.status === 'draft');
   const hasSelectedRef = useRef(false);
 
   useEffect(() => {
@@ -51,21 +55,25 @@ export function ConversationsPage() {
       onRefresh={refresh}
       refreshing={loading}
     >
+      <div className="mb-5">
+        <GuidanceCard title="How conversations work">
+          <div className="space-y-2">
+            <p>Inbound means the prospect replied to you. Outbound means a message from your FORVA workspace.</p>
+            <p>Safe Auto-Pilot replies can continue automatically when enabled in Settings. Pricing questions, meeting requests and anything outside your rules stay in Review Queue for you.</p>
+            <p>If a reply draft is waiting, review and edit it before sending. A prospect reply also stops unnecessary follow-ups.</p>
+          </div>
+        </GuidanceCard>
+      </div>
+
       {error && <ErrorBanner error={error} />}
       {loading ? (
         <LoadingState />
       ) : conversations.length === 0 ? (
-        <Card>
-          <CardContent>
-            <EmptyState message="No conversations yet." />
-          </CardContent>
-        </Card>
+        <Card><CardContent><EmptyState message="No conversations yet. Conversations appear after a prospect replies to outreach." /></CardContent></Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className={cn('lg:col-span-1', selectedId && 'hidden lg:block')}>
-            <CardHeader>
-              <CardTitle>Conversations</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Conversations</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {conversations.map((conv) => (
@@ -74,18 +82,16 @@ export function ConversationsPage() {
                     onClick={() => setSelectedId(conv.id)}
                     className={cn(
                       'w-full rounded-lg p-3 text-left transition-colors',
-                      selectedId === conv.id ? 'bg-primary/15 border border-primary/30' : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                      selectedId === conv.id ? 'border border-primary/30 bg-primary/15' : 'border border-transparent bg-white/5 hover:bg-white/10'
                     )}
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-foreground">{conv.business_name}</p>
-                      <span className={cn('text-xs font-semibold', statusColors[conv.status ?? ''] ?? 'text-muted-foreground')}>
-                        {capitalize(conv.status)}
-                      </span>
+                      <span className={cn('text-xs font-semibold', statusColors[conv.status ?? ''] ?? 'text-muted-foreground')}>{capitalize(conv.status)}</span>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {conv.channel ?? 'Email'}
-                      {conv.last_message_at && ` \u2022 ${formatTimeAgo(conv.last_message_at)}`}
+                      {conv.last_message_at && ` • ${formatTimeAgo(conv.last_message_at)}`}
                     </p>
                   </button>
                 ))}
@@ -95,17 +101,21 @@ export function ConversationsPage() {
 
           <Card className={cn('lg:col-span-2', !selectedId && 'hidden lg:block')}>
             <CardHeader>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setSelectedId(null)}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground lg:hidden"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  {selected ? selected.business_name : 'Select a conversation'}
-                </CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setSelectedId(null)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground lg:hidden">
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    {selected ? selected.business_name : 'Select a conversation'}
+                  </CardTitle>
+                </div>
+                {pendingDraft && (
+                  <Button size="sm" asChild>
+                    <Link to="/dashboard/reviews"><ClipboardCheck className="h-4 w-4" />Review Reply</Link>
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -124,38 +134,22 @@ export function ConversationsPage() {
                       key={msg.id}
                       className={cn(
                         'rounded-lg p-4',
-                        msg.direction === 'inbound' ? 'bg-white/5' : 'bg-primary/10 border border-primary/20'
+                        msg.direction === 'inbound' ? 'bg-white/5' : 'border border-primary/20 bg-primary/10'
                       )}
                     >
                       <div className="mb-2 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          {msg.direction === 'inbound' ? (
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          ) : (
-                            <ArrowLeft className="h-3.5 w-3.5 text-primary" />
-                          )}
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {msg.direction === 'inbound' ? 'Inbound' : 'Outbound'}
-                          </span>
-                          {msg.status && (
-                            <Badge variant="secondary" className="text-xs">{capitalize(msg.status)}</Badge>
-                          )}
+                          {msg.direction === 'inbound' ? <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ArrowLeft className="h-3.5 w-3.5 text-primary" />}
+                          <span className="text-xs font-medium text-muted-foreground">{msg.direction === 'inbound' ? 'Inbound' : 'Outbound'}</span>
+                          {msg.status && <Badge variant="secondary" className="text-xs">{capitalize(msg.status)}</Badge>}
                         </div>
                         <span className="text-xs text-muted-foreground">{formatDateTime(msg.occurred_at)}</span>
                       </div>
-                      {msg.subject && (
-                        <p className="mb-1 text-sm font-medium text-foreground">{msg.subject}</p>
-                      )}
-                      {msg.body && (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{msg.body}</p>
-                      )}
+                      {msg.subject && <p className="mb-1 text-sm font-medium text-foreground">{msg.subject}</p>}
+                      {msg.body && <p className="whitespace-pre-wrap text-sm text-muted-foreground">{msg.body}</p>}
                       <div className="mt-2 flex items-center gap-2">
-                        {msg.intent && (
-                          <Badge variant="outline" className="text-xs">Intent: {capitalize(msg.intent)}</Badge>
-                        )}
-                        {msg.provider && (
-                          <span className="text-xs text-muted-foreground/60">via {msg.provider}</span>
-                        )}
+                        {msg.intent && <Badge variant="outline" className="text-xs">Intent: {capitalize(msg.intent)}</Badge>}
+                        {msg.provider && <span className="text-xs text-muted-foreground/60">via {msg.provider}</span>}
                       </div>
                     </div>
                   ))}
