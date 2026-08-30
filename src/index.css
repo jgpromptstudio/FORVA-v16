@@ -53,6 +53,16 @@
     @apply font-body;
   }
 
+  /* Keep native select popups readable on Windows/Chromium dark dashboards. */
+  select {
+    color-scheme: dark;
+  }
+
+  select option {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+
   ::selection {
     @apply bg-primary/30 text-foreground;
   }
