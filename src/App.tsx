@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -41,11 +42,11 @@ import { AdminReviewsPage } from '@/pages/admin/AdminReviewsPage';
 import { AdminBillingPage } from '@/pages/admin/AdminBillingPage';
 import { AdminSystemPage } from '@/pages/admin/AdminSystemPage';
 
-function UserRoute({ children }: { children: React.ReactNode }) {
+function UserRoute({ children }: { children: ReactNode }) {
   return <ProtectedRoute>{children}</ProtectedRoute>;
 }
 
-function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+function AdminOnlyRoute({ children }: { children: ReactNode }) {
   return <AdminRoute>{children}</AdminRoute>;
 }
 
