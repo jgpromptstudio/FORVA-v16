@@ -10,6 +10,9 @@ interface WorkspaceState {
   error: string | null;
 }
 
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const isTransient = (message?: string | null) => /failed to fetch|network|load failed/i.test(String(message ?? ''));
+
 export function useWorkspace() {
   const { user } = useAuth();
   const [state, setState] = useState<WorkspaceState>({
@@ -27,28 +30,67 @@ export function useWorkspace() {
 
     setState((s) => ({ ...s, loading: true, error: null }));
 
-    // New-user self-heal/provisioning RPC installed by the backend closing patch.
-    const { data: ensuredWorkspaceId, error: ensureError } = await supabase.rpc('ensure_my_forva_workspace');
+    let ensuredWorkspaceId: unknown = null;
+    let ensureError: string | null = null;
 
-    if (ensureError) {
-      setState({ workspaceId: null, workspaceName: null, loading: false, error: `Workspace setup failed: ${ensureError.message}` });
-      return;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await supabase.rpc('ensure_my_forva_workspace');
+      if (!result.error) {
+        ensuredWorkspaceId = result.data;
+        ensureError = null;
+        break;
+      }
+
+      ensureError = result.error.message;
+      if (!isTransient(ensureError) || attempt === 2) break;
+      await wait(350 * (attempt + 1));
     }
 
     const wsId = typeof ensuredWorkspaceId === 'string' ? ensuredWorkspaceId : null;
     if (!wsId) {
-      setState({ workspaceId: null, workspaceName: null, loading: false, error: 'Workspace setup did not return a workspace.' });
+      setState({
+        workspaceId: null,
+        workspaceName: null,
+        loading: false,
+        error: ensureError && isTransient(ensureError)
+          ? 'Workspace connection is temporarily unavailable. Please try again.'
+          : ensureError
+            ? `Workspace setup failed: ${ensureError}`
+            : 'Workspace setup did not return a workspace.',
+      });
       return;
     }
 
-    const { data: workspace, error: workspaceError } = await supabase
-      .from('workspaces')
-      .select('id, name')
-      .eq('id', wsId)
-      .maybeSingle();
+    let workspace: { id: string; name: string | null } | null = null;
+    let workspaceError: string | null = null;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await supabase
+        .from('workspaces')
+        .select('id, name')
+        .eq('id', wsId)
+        .maybeSingle();
+
+      if (!result.error) {
+        workspace = result.data;
+        workspaceError = null;
+        break;
+      }
+
+      workspaceError = result.error.message;
+      if (!isTransient(workspaceError) || attempt === 1) break;
+      await wait(350 * (attempt + 1));
+    }
 
     if (workspaceError) {
-      setState({ workspaceId: null, workspaceName: null, loading: false, error: `Workspace load failed: ${workspaceError.message}` });
+      setState({
+        workspaceId: null,
+        workspaceName: null,
+        loading: false,
+        error: isTransient(workspaceError)
+          ? 'Workspace connection is temporarily unavailable. Please try again.'
+          : `Workspace load failed: ${workspaceError}`,
+      });
       return;
     }
 
@@ -90,16 +132,41 @@ export function useCreditAccount(workspaceId: string | null) {
 
     setState((s) => ({ ...s, loading: true, error: null, reason: null }));
 
-    const { data, error } = await supabase.rpc('get_forva_credit_account', {
-      p_workspace_id: workspaceId,
-    });
+    let responseData: unknown = null;
+    let responseError: string | null = null;
 
-    if (error) {
-      setState({ data: null, loading: false, error: `Credit status failed: ${error.message}`, reason: null });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await supabase.rpc('get_forva_credit_account', {
+        p_workspace_id: workspaceId,
+      });
+
+      if (!result.error) {
+        responseData = result.data;
+        responseError = null;
+        break;
+      }
+
+      responseError = result.error.message;
+      if (!isTransient(responseError) || attempt === 1) break;
+      await wait(350 * (attempt + 1));
+    }
+
+    if (responseError) {
+      setState({
+        data: null,
+        loading: false,
+        error: isTransient(responseError)
+          ? 'Credit status is temporarily unavailable. Please try again.'
+          : `Credit status failed: ${responseError}`,
+        reason: null,
+      });
       return;
     }
 
-    const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+    const payload = responseData && typeof responseData === 'object'
+      ? (responseData as Record<string, unknown>)
+      : null;
+
     if (!payload || payload.ok !== true) {
       setState({
         data: null,
